@@ -39,6 +39,8 @@
   if (S.me.xcap == null) S.me.xcap = 4;
   if (!S.me.theme) S.me.theme = 'auto';
   if (S.me.detect == null) S.me.detect = true;
+  function applyBig() { if (S.me.big) document.documentElement.dataset.big = '1'; else delete document.documentElement.dataset.big; }
+  applyBig();
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
@@ -806,11 +808,14 @@
     const spect = !!g.follow;
     if (spect && (S.tab === 'trou' || S.tab === 'carte')) S.tab = 'classement';
     const tabs = spect ? [['classement', '📺 Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
-    $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="icon" id="g-invite" aria-label="Inviter">📨</button>`) +
+    $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="icon bigtg ${S.me.big ? 'on' : ''}" id="g-big" aria-label="Mode parcours">👓</button><button class="icon" id="g-invite" aria-label="Inviter">📨</button>`) +
       `<nav class="tabs">${tabs.map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"></main>`;
     updateSyncBadge();
     $app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; $app.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('on', x === b)); renderGameBody(); });
-    if (!spect) { $app.querySelector('#g-invite').onclick = () => showInvite(g); startGPS(); }
+    if (!spect) {
+      $app.querySelector('#g-invite').onclick = () => showInvite(g); startGPS();
+      $app.querySelector('#g-big').onclick = () => { S.me.big = !S.me.big; saveMe(); applyBig(); $app.querySelector('#g-big').classList.toggle('on', !!S.me.big); if (S.me.big && S.tab !== 'trou') { S.tab = 'trou'; viewGame(gid); return; } renderGameBody(); toast(S.me.big ? '👓 Mode parcours' : 'Mode normal'); };
+    }
     subscribe(gid);
     if (!spect) rememberPartners(g);
     const lc = spect ? null : getCourse(g.game.course_id);
@@ -1507,6 +1512,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
+      <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via 👓 en haut d'une partie)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
@@ -1539,6 +1545,7 @@
     updateSyncBadge();
     $app.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { S.me.theme = b.dataset.th; saveMe(); applyTheme(); $app.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelector('#p-xcap').onchange = e => { S.me.xcap = Number(e.target.value); saveMe(); toast('Croix = par + ' + S.me.xcap + ' pour tes prochaines parties'); };
+    $app.querySelector('#p-big').onchange = e => { S.me.big = e.target.checked; saveMe(); applyBig(); };
     $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
