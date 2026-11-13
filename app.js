@@ -38,6 +38,7 @@
   if (S.me.visible == null) S.me.visible = true;
   if (S.me.xcap == null) S.me.xcap = 4;
   if (!S.me.theme) S.me.theme = 'auto';
+  if (S.me.detect == null) S.me.detect = true;
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
@@ -302,6 +303,43 @@
     return out;
   }
   const chipHtml = (m, on, attr) => `<button ${attr}="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${on ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`;
+
+  /* ---------- Détection d'arrivée au golf (appli ouverte) ---------- */
+  let detectTimer = null;
+  function checkArrival() {
+    if (!S.me.detect || !S.me.name || !navigator.geolocation || document.visibilityState !== 'visible') return;
+    if (/^#\/game\//.test(location.hash)) return; // déjà en partie
+    navigator.geolocation.getCurrentPosition(p => {
+      const pos = { lat: p.coords.latitude, lng: p.coords.longitude };
+      let best = null;
+      Object.values(allCourses()).forEach(c => { if (!c.center) return; const d = C.distance(pos, c.center); if (d <= 2000 && (!best || d < best.d)) best = { c, d }; });
+      if (!best) return;
+      const key = 'fw_welcome_' + best.c.id; const day = today();
+      if (LS.get(key, '') === day) return;
+      LS.set(key, day);
+      welcomePopup(best.c, best.d);
+    }, () => { }, { enableHighAccuracy: false, maximumAge: 120000, timeout: 15000 });
+  }
+  function startDetect() { clearInterval(detectTimer); if (!S.me.detect) return; setTimeout(checkArrival, 2500); detectTimer = setInterval(checkArrival, 120000); }
+  async function welcomePopup(course, dist) {
+    const here = shortCourse(course.name);
+    const potes = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId && m.course && here && m.course === here);
+    const el = document.createElement('div'); el.className = 'modal';
+    const conf = Array.from({ length: 28 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .5}s;background:${['#22a052', '#ffd400', '#fff', '#e8272b'][i % 4]}"></i>`).join('');
+    el.innerHTML = `<div class="sheet welcome-golf"><div class="conf">${conf}</div><img class="wlogo" src="icon.svg" alt=""><h2>Bienvenue au golf !</h2><div class="wg-name">${esc(course.name)}</div>
+      <p>Bonne partie ${esc(S.me.name)} ⛳<br><small>Et que le dernier paie sa tournée 🍺</small></p>
+      <div id="wg-live"></div>
+      ${potes.length ? `<p class="wg-potes">${potes.map(m => '<i class="led"></i>' + esc(m.name)).join(' · ')} ${potes.length > 1 ? 'sont' : 'est'} aussi sur le parcours</p>` : ''}
+      <a class="btn big full" href="#/new/${encodeURIComponent(course.id)}" id="wg-new">⛳ Nouvelle partie ici</a>
+      <button class="btn ghost full" id="wg-x">Plus tard</button></div>`;
+    document.body.appendChild(el); vibrate([40, 60, 40]);
+    const close = () => el.remove();
+    el.querySelector('#wg-new').onclick = close; el.querySelector('#wg-x').onclick = close;
+    el.onclick = e => { if (e.target === el) close(); };
+    const live = (await fetchLive()).filter(g => g.game.course_id === course.id);
+    const box = el.querySelector('#wg-live');
+    if (box && live.length) box.innerHTML = `<a class="btn ghost full" href="#/live" id="wg-lv">📺 ${live.length} partie${live.length > 1 ? 's' : ''} en cours ici : rejoindre ou suivre</a>`, box.querySelector('#wg-lv').onclick = close;
+  }
 
   /* ---------- Suivre mes potes ---------- */
   function followIds() { return S.me.follow ? S.me.partners.filter(p => p.device_id).map(p => p.device_id).slice(0, 40) : []; }
@@ -569,7 +607,7 @@
     if (r !== 'game') { stopGPS(); unsubscribe(); }
     setTimeout(trackPresence, 300);
     if (!S.me.name && r !== 'join' && r !== 'profile') return viewWelcome();
-    if (r === 'new') return viewNew();
+    if (r === 'new') return viewNew(a ? decodeURIComponent(a) : null);
     if (r === 'game' && a) return viewGame(a);
     if (r === 'join' && a) return viewJoin(a);
     if (r === 'courses') return viewCourses();
@@ -632,9 +670,9 @@
   }
 
   /* --- Nouvelle partie --- */
-  function viewNew() {
+  function viewNew(preCourse) {
     const courses = Object.values(allCourses());
-    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'brut', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [], hcp: false, xcap: S.me.xcap != null ? S.me.xcap : 4 };
+    const st = { courseId: (preCourse && courses.some(x => x.id === preCourse)) ? preCourse : courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'brut', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [], hcp: false, xcap: S.me.xcap != null ? S.me.xcap : 4 };
     const teamFmt = () => st.format === 'scramble' || st.format === 'combo';
     const nTeams = () => st.format === 'combo' ? 2 : Math.max(2, Math.ceil(st.players.length / st.teamSize));
     const fixTeams = () => { st.assign = st.players.map((_, i) => st.assign[i] != null && st.assign[i] < nTeams() ? st.assign[i] : -1); for (let k = 0; k < nTeams(); k++) if (!st.tnames[k]) st.tnames[k] = TEAM_NAMES[(k + Math.floor(Math.random() * TEAM_NAMES.length)) % TEAM_NAMES.length]; if (new Set(st.tnames.slice(0, nTeams())).size < nTeams()) st.tnames = st.tnames.map((n, k) => TEAM_NAMES[k % TEAM_NAMES.length]); };
@@ -1469,6 +1507,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
+      <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue quand tu ouvres l'appli à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Apparence</label>
@@ -1500,6 +1539,7 @@
     updateSyncBadge();
     $app.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { S.me.theme = b.dataset.th; saveMe(); applyTheme(); $app.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelector('#p-xcap').onchange = e => { S.me.xcap = Number(e.target.value); saveMe(); toast('Croix = par + ' + S.me.xcap + ' pour tes prochaines parties'); };
+    $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
@@ -1542,6 +1582,8 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
   }
   route();
+  startDetect();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkArrival(); });
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
     reg.update();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
