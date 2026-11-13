@@ -320,7 +320,7 @@
       welcomePopup(best.c, best.d);
     }, () => { }, { enableHighAccuracy: false, maximumAge: 120000, timeout: 15000 });
   }
-  function startDetect() { clearInterval(detectTimer); if (!S.me.detect) return; setTimeout(checkArrival, 2500); detectTimer = setInterval(checkArrival, 120000); }
+  function startDetect() { clearInterval(detectTimer); if (!S.me.detect) return; setTimeout(checkArrival, 2500); }
   async function welcomePopup(course, dist) {
     const here = shortCourse(course.name);
     const potes = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId && m.course && here && m.course === here);
@@ -1507,7 +1507,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
-      <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue quand tu ouvres l'appli à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Apparence</label>
@@ -1583,7 +1583,6 @@
   }
   route();
   startDetect();
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkArrival(); });
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
     reg.update();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update(); });
