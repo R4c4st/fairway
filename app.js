@@ -490,7 +490,7 @@
 
   /* ---------- Rendu ---------- */
   function topbar(title, back, extra) {
-    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<span class="logo">⛳</span>'}<h1>${esc(title)}</h1><span id="sync" class="sync"></span>${extra || ''}</header>`;
+    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<span class="logo">⛳</span>'}<h1>${esc(title)}${title === 'Fairway' ? ' <span class="beta">En beta et pour les copains</span>' : ''}</h1><span id="sync" class="sync"></span>${extra || ''}</header>`;
   }
   function route() {
     const h = location.hash.replace(/^#\/?/, '');
@@ -1119,7 +1119,7 @@
 
   /* --- Bienvenue (1re installation) --- */
   function viewWelcome() {
-    $app.innerHTML = `<main class="welcome"><div class="wlogo">⛳</div><h1>Fairway</h1><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
+    $app.innerHTML = `<main class="welcome"><div class="wlogo">⛳</div><h1>Fairway</h1><div class="beta w">En beta et pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
       <div class="row2"><label>Index<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
       <button class="btn big full" id="w-go">C'est parti</button>
