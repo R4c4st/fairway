@@ -10,6 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script>try{var t=(JSON.parse(localStorage.getItem('fw_me')||'{}').theme)||'auto';if(t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.dataset.theme='dark';}catch(e){}</script>
 <style>
 :root{--g:#1b7a3d;--gd:#14532d;--gl:#e7f4ec;--bg:#f6f7f5;--card:#fff;--tx:#14201a;--mu:#68756d;--bd:#dde3de;--red:#d9363e;--blue:#2563c9;--r:14px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -228,6 +229,40 @@ h2 .cnt{background:#22c55e;color:#fff;border-radius:99px;padding:1px 8px;font-si
 @keyframes wiggle{0%,100%{transform:rotate(0) scale(1)}25%{transform:rotate(-15deg) scale(1.15)}75%{transform:rotate(15deg) scale(1.15)}}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* ===== Mode sombre (vrai noir pour écrans OLED) ===== */
+html[data-theme=dark]{--g:#2fa45a;--gd:#0f2c1a;--gl:#16301f;--bg:#000;--card:#111513;--tx:#e8efe9;--mu:#93a299;--bd:#25302a;--red:#ff5a62;--blue:#6b9bff;color-scheme:dark}
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] .chips button,html[data-theme=dark] .sub button,html[data-theme=dark] .maptools button,html[data-theme=dark] .seg button,html[data-theme=dark] .pick button,html[data-theme=dark] .teamcard{background:var(--card)}
+html[data-theme=dark] .sheet,html[data-theme=dark] .popcard{background:#151a17}
+html[data-theme=dark] .tabs button.on{background:#1d2a22;color:#e8efe9}
+html[data-theme=dark] .chips button.on,html[data-theme=dark] .pick button.on,html[data-theme=dark] .seg button.on{background:var(--g);color:#fff}
+html[data-theme=dark] .stepper button{background:#183623;color:#bfe9cc}
+html[data-theme=dark] .val.dbl,html[data-theme=dark] .sc.dbl{color:#b78cff;border-color:#b78cff}
+html[data-theme=dark] .bar i.dbl{background:#b78cff}
+html[data-theme=dark] .paylist li,html[data-theme=dark] .lc-ev,html[data-theme=dark] .pushban{background:#2a2108;border-color:#5a4512;color:#f7e2a8}
+html[data-theme=dark] .pop.rouge .popcard{background:#2a2108}
+html[data-theme=dark] .pop.rouge .poptitle{color:#ffcf5a}
+html[data-theme=dark] .poptitle{color:#7fe0a0}
+html[data-theme=dark] .board .meRow{background:#16301f}
+html[data-theme=dark] .gps{background:#0c2416}
+html[data-theme=dark] .welcome h1{color:#7fe0a0}
+html[data-theme=dark] .tdot{box-shadow:0 0 0 2px #000}
+html[data-theme=dark] .btn.ghost{background:var(--card);color:#bfe9cc;border-color:var(--bd)}
+html[data-theme=dark] .btn.danger{color:var(--red);border-color:#5a2226}
+html[data-theme=dark] .onchip{border-color:#1f4a2c}
+html[data-theme=dark] .kpis b{color:#7fe0a0}
+html[data-theme=dark] .code{color:#7fe0a0}
+html[data-theme=dark] .qr svg{background:#fff;border-radius:8px}
+html[data-theme=dark] a{color:#7fe0a0}
+html[data-theme=dark] .gcard,html[data-theme=dark] .livecard{color:var(--tx)}
+html[data-theme=dark] .tag{background:#183623;color:#9be7b4}
+html[data-theme=dark] .onchip small,html[data-theme=dark] .pname .mem,html[data-theme=dark] .sub .res,html[data-theme=dark] .tchip{color:#9be7b4}
+html[data-theme=dark] .tchip{background:#183623}
+html[data-theme=dark] .toast{background:#e8efe9;color:#000}
+html[data-theme=dark] .phasebar{background:#16301f}
+html[data-theme=dark] .hn{background:#1d4a2c}
+html[data-theme=dark] a.btn{color:#fff}
+html[data-theme=dark] a.btn.ghost{color:#bfe9cc}
 </style>
 </head>
 <body>
