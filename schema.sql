@@ -125,3 +125,6 @@ alter table public.scores replica identity full;
 -- Droits d'accès explicites pour l'appli (utile si « Automatically expose new tables » est décoché)
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.courses, public.games, public.players, public.scores, public.profiles, public.events to anon, authenticated;
+
+-- Recharge le cache de l'API pour que les nouvelles tables soient visibles tout de suite
+notify pgrst, 'reload schema';
