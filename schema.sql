@@ -128,3 +128,15 @@ grant select, insert, update, delete on public.courses, public.games, public.pla
 
 -- Recharge le cache de l'API pour que les nouvelles tables soient visibles tout de suite
 notify pgrst, 'reload schema';
+
+-- ===== v3 : sauvegarde automatique =====
+create table if not exists public.backups (
+  device_id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.backups enable row level security;
+drop policy if exists backups_rw on public.backups;
+create policy backups_rw on public.backups for all to anon using (true) with check (true);
+grant select, insert, update, delete on public.backups to anon, authenticated;
+notify pgrst, 'reload schema';

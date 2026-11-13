@@ -37,9 +37,9 @@
   if (S.me.follow == null) S.me.follow = true;
   LS.set('fw_me', S.me);
   S.seen = new Set();
-  const saveGames = () => LS.set('fw_games', S.games);
-  const saveMe = () => LS.set('fw_me', S.me);
-  const saveCourses = () => LS.set('fw_courses', S.customCourses);
+  const saveGames = () => { LS.set('fw_games', S.games); scheduleBackup(); };
+  const saveMe = () => { LS.set('fw_me', S.me); scheduleBackup(); };
+  const saveCourses = () => { LS.set('fw_courses', S.customCourses); scheduleBackup(); };
   const saveQueue = () => LS.set('fw_queue', S.queue);
 
   function allCourses() {
@@ -208,6 +208,36 @@
     if (!S.seen.has(e.id)) { S.seen.add(e.id); eventPopup(g, e); }
   }
 
+  /* ---------- Sauvegarde automatique (serveur) ---------- */
+  var backupTimer = null;
+  function scheduleBackup() { clearTimeout(backupTimer); backupTimer = setTimeout(doBackup, 15000); }
+  async function doBackup() {
+    if (!sb || !navigator.onLine || !S.me || !S.me.name) return;
+    const games = {}; Object.values(S.games).forEach(g => { if (!g.follow) games[g.game.id] = g; });
+    const data = { v: 1, me: S.me, courses: S.customCourses, games, queue: S.queue };
+    try {
+      const { error } = await sb.from('backups').upsert({ device_id: S.me.deviceId, data, updated_at: new Date().toISOString() });
+      if (!error) { S.lastBackup = new Date().toISOString(); LS.set('fw_lastbackup', S.lastBackup); const el = document.getElementById('p-bk'); if (el) el.textContent = backupLabel(); }
+    } catch (e) { }
+  }
+  function backupLabel() {
+    const t = S.lastBackup || LS.get('fw_lastbackup', null);
+    if (!sb) return 'Sauvegarde auto : serveur non configuré';
+    if (!t) return 'Sauvegarde auto : pas encore faite';
+    const m = Math.round((Date.now() - new Date(t).getTime()) / 60000);
+    return '☁️ Sauvegarde auto : ' + (m < 1 ? "à l'instant" : m < 60 ? 'il y a ' + m + ' min' : m < 1440 ? 'il y a ' + Math.round(m / 60) + ' h' : 'le ' + new Date(t).toLocaleDateString('fr-FR'));
+  }
+  async function restoreBackup(deviceId) {
+    const { data, error } = await sb.from('backups').select('*').eq('device_id', deviceId).limit(1);
+    if (error || !data || !data.length) return false;
+    const d = data[0].data || {};
+    Object.entries(d.games || {}).forEach(([id, g]) => { if (!S.games[id]) S.games[id] = g; });
+    Object.entries(d.courses || {}).forEach(([id, c]) => { const loc = S.customCourses[id]; if (!loc || (c._updated || '') > (loc._updated || '')) S.customCourses[id] = c; });
+    if (d.me && d.me.bag) S.me.bag = d.me.bag;
+    LS.set('fw_games', S.games); LS.set('fw_courses', S.customCourses); LS.set('fw_me', S.me);
+    return true;
+  }
+
   /* ---------- Suivre mes potes ---------- */
   function followIds() { return S.me.follow ? S.me.partners.filter(p => p.device_id).map(p => p.device_id).slice(0, 40) : []; }
   async function followGame(gid) {
@@ -247,7 +277,7 @@
     if (!data || !data.length) throw new Error('Aucun profil avec ce code.');
     const r = data[0];
     S.me = { deviceId: r.device_id, code: r.code, name: r.name || '', index: r.idx == null ? '' : String(r.idx), tee: r.tee || 'jaune', bag: r.bag || S.me.bag, partners: r.partners || [] };
-    saveMe(); await pullMyGames();
+    saveMe(); try { await restoreBackup(S.me.deviceId); } catch (e) { } await pullMyGames();
   }
   function rememberPartners(g) {
     if (!g || !myPlayer(g)) return;
@@ -857,7 +887,95 @@
       ${front.map(row).join('')}${front.length && back.length ? tot('Aller', front) : ''}${back.map(row).join('')}${front.length && back.length ? tot('Retour', back) : ''}${tot('Total', holes)}
       <tr class="tot"><td colspan="3">Putts</td>${sums.map(s => `<td>${s.putts != null ? s.putts : ''}</td>`).join('')}</tr>
       </tbody></table></div>
-      <div class="legend"><span class="sc eagle">3</span>Eagle <span class="sc birdie">3</span>Birdie <span class="sc par">4</span>Par <span class="sc bogey">5</span>Bogey <span class="sc dbl">6</span>Double+ <span class="sc pick">X</span>Ramassée</div>`;
+      <div class="legend"><span class="sc eagle">3</span>Eagle <span class="sc birdie">3</span>Birdie <span class="sc par">4</span>Par <span class="sc bogey">5</span>Bogey <span class="sc dbl">6</span>Double+ <span class="sc pick">X</span>Ramassée</div>
+      <button class="btn big full" id="c-share">📤 Partager la carte de score</button>`;
+    body.querySelector('#c-share').onclick = () => shareCardImage(g);
+  }
+
+  /* --- Carte de score en image (WhatsApp, etc.) --- */
+  async function shareCardImage(g) {
+    const course = gameCourse(g);
+    const holes = C.holesFor(g.game.mode, course.holes.length);
+    const sums = g.players.map(p => C.playerSummary(p, g.game, course, scoresOf(g)[p.id] || {}));
+    const rows = C.leaderboard(g.players, g.game, course, scoresOf(g));
+    const pay = C.payers(g.players, g.game, course, scoresOf(g), g.events);
+    const stb = g.game.format === 'stableford';
+    const front = holes.filter(h => h <= 9), back = holes.filter(h => h > 9);
+    const seq = [...front.map(h => ({ h })), ...(front.length && back.length ? [{ t: 'Aller', hs: front }] : []), ...back.map(h => ({ h })), ...(front.length && back.length ? [{ t: 'Retour', hs: back }] : []), { t: 'Total', hs: holes }];
+    const W = 1080, pad = 40, rowH = 50, colFix = [110, 80, 80], np = g.players.length;
+    const pw = Math.min(220, (W - pad * 2 - colFix.reduce((a, b) => a + b, 0)) / Math.max(np, 1));
+    const headH = 230, rankH = 70 + rows.length * 56, payH = (pay.last.length || pay.rouges.length) ? 60 + (pay.last.length ? 50 : 0) + pay.rouges.length * 44 : 0;
+    const H = headH + rowH * (seq.length + 1) + 40 + rankH + payH + 90;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const x = cv.getContext('2d');
+    const F = (w, sz) => `${w} ${sz}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+    x.fillStyle = '#f6f7f5'; x.fillRect(0, 0, W, H);
+    // en-tête
+    x.fillStyle = '#14532d'; x.fillRect(0, 0, W, headH);
+    x.fillStyle = '#fff'; x.font = F(800, 50); x.fillText('⛳ ' + course.name, pad, 85);
+    x.font = F(500, 30); x.fillStyle = '#cfe8d6';
+    x.fillText(frDate(g.game.play_date) + ' · ' + FORMATS[g.game.format] + ' · ' + MODES[g.game.mode] + ' · repère ' + teeName(course, g.game.tee), pad, 140);
+    x.fillText(g.players.map(p => p.name).join(' · '), pad, 190);
+    // tableau
+    let y = headH + 20;
+    const colsX = [pad, pad + colFix[0], pad + colFix[0] + colFix[1]];
+    const pX = i => pad + colFix[0] + colFix[1] + colFix[2] + i * pw;
+    x.fillStyle = '#1b7a3d'; x.fillRect(pad, y, W - pad * 2, rowH);
+    x.fillStyle = '#fff'; x.font = F(700, 24); x.textAlign = 'center';
+    ['Trou', 'Par', 'HCP'].forEach((t, i) => x.fillText(t, colsX[i] + colFix[i] / 2, y + 33));
+    g.players.forEach((p, i) => x.fillText(p.name.split(' ')[0].slice(0, 10), pX(i) + pw / 2, y + 33));
+    y += rowH;
+    const colors = { eagle: '#d9363e', birdie: '#d9363e', par: '#14201a', bogey: '#2563c9', dbl: '#6b21a8', pick: '#68756d' };
+    seq.forEach((r, k) => {
+      const tot = !!r.t;
+      x.fillStyle = tot ? '#e7f4ec' : (k % 2 ? '#fff' : '#fbfcfb'); x.fillRect(pad, y, W - pad * 2, rowH);
+      x.fillStyle = '#14201a'; x.font = F(tot ? 800 : 700, 26);
+      if (tot) {
+        x.fillText(r.t, colsX[0] + colFix[0] / 2, y + 34);
+        x.fillText(String(r.hs.reduce((a, h) => a + course.holes[h - 1].par, 0)), colsX[1] + colFix[1] / 2, y + 34);
+        sums.forEach((s, i) => { let gr = 0, pt = 0, n = 0; r.hs.forEach(h => { const ph = s.perHole[h]; if (ph && ph.gross != null) { gr += ph.gross; pt += ph.points || 0; n++; } }); if (n) { x.font = F(800, 26); x.fillText(stb ? gr + '  (' + pt + ' pts)' : String(gr), pX(i) + pw / 2, y + 34); } });
+      } else {
+        const ch = course.holes[r.h - 1];
+        x.fillText(String(r.h), colsX[0] + colFix[0] / 2, y + 34);
+        x.font = F(500, 26); x.fillText(String(ch.par), colsX[1] + colFix[1] / 2, y + 34);
+        x.fillStyle = '#68756d'; x.font = F(500, 22); x.fillText(String(ch.si), colsX[2] + colFix[2] / 2, y + 33);
+        sums.forEach((s, i) => {
+          const ph = s.perHole[r.h]; if (!ph || ph.gross == null) return;
+          const cx = pX(i) + pw / 2, cy = y + rowH / 2, d = ph.gross - ph.par, cls = ph.pickup ? 'pick' : scoreCls(d);
+          x.strokeStyle = colors[cls]; x.lineWidth = 3;
+          if (cls === 'birdie' || cls === 'eagle') { x.beginPath(); x.arc(cx, cy, 18, 0, 7); x.stroke(); if (cls === 'eagle') { x.beginPath(); x.arc(cx, cy, 13, 0, 7); x.stroke(); } }
+          if (cls === 'bogey' || cls === 'dbl') { x.strokeRect(cx - 18, cy - 18, 36, 36); if (cls === 'dbl') x.strokeRect(cx - 13, cy - 13, 26, 26); }
+          x.fillStyle = colors[cls]; x.font = F(800, 24); x.fillText(ph.pickup ? 'X' : String(ph.raw), cx, cy + 9);
+          if (stb) { x.fillStyle = '#68756d'; x.font = F(600, 16); x.fillText(String(ph.points), cx + 34, cy + 16); }
+        });
+      }
+      x.strokeStyle = '#dde3de'; x.lineWidth = 1; x.beginPath(); x.moveTo(pad, y + rowH); x.lineTo(W - pad, y + rowH); x.stroke();
+      y += rowH;
+    });
+    // classement
+    y += 40; x.textAlign = 'left';
+    x.fillStyle = '#68756d'; x.font = F(800, 26); x.fillText('CLASSEMENT', pad, y); y += 24;
+    rows.forEach((r, i) => {
+      x.fillStyle = i === 0 ? '#fff7e0' : '#fff'; x.fillRect(pad, y, W - pad * 2, 48);
+      x.fillStyle = '#14201a'; x.font = F(800, 28); x.fillText((i === 0 ? '🏆 ' : (i + 1) + '. ') + r.name, pad + 16, y + 34);
+      x.textAlign = 'right'; x.font = F(700, 26);
+      x.fillText((stb ? r.points + ' pts · ' : '') + 'brut ' + r.gross + ' (' + fmtPar(r.toPar) + ') · net ' + r.net, W - pad - 16, y + 34);
+      x.textAlign = 'left'; y += 56;
+    });
+    // tournées
+    if (payH) {
+      y += 44; x.fillStyle = '#9a5b00'; x.font = F(800, 26); x.fillText('TOURNÉES 🍺', pad, y); y += 14;
+      if (pay.last.length) { y += 40; x.fillStyle = '#14201a'; x.font = F(800, 30); x.fillText('🍻 Merci ' + pay.last.map(p => p.name).join(' et ') + ' !', pad, y); }
+      pay.rouges.forEach(r => { y += 44; x.font = F(600, 26); x.fillText('🍺 ' + r.name + ' — pas passé les rouges (trou ' + r.holes.join(', ') + ')', pad, y); });
+    }
+    x.fillStyle = '#68756d'; x.font = F(600, 22); x.textAlign = 'center'; x.fillText('Fairway — golf entre potes', W / 2, H - 30);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const name = 'carte-' + (course.name.split(' ').pop() || 'golf').toLowerCase() + '-' + g.game.play_date + '.png';
+    const file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: '⛳ ' + course.name + ' — ' + frDate(g.game.play_date) }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); toast('Image enregistrée');
   }
 
   /* --- Invitation --- */
@@ -1009,15 +1127,21 @@
       <label>Clé anon public<input id="p-key" placeholder="eyJ..." value="${esc(S.cfg.supabaseAnonKey || '')}"></label>
       <div class="row2"><button class="btn ghost" id="p-test">Tester</button><button class="btn" id="p-srv">Enregistrer serveur</button></div>
       <p id="p-res" class="hint">${remoteOn() ? 'Serveur configuré.' : 'Sans serveur, l\'appli marche en local sur ce téléphone (pas d\'invitations).'}</p>
+      <h2>Sauvegarde</h2>
+      <p class="hint" id="p-bk">${backupLabel()}</p>
+      <p class="hint">Tout est sauvegardé tout seul sur le serveur (profil, partenaires, parcours, parties) quelques secondes après chaque changement. Pour tout récupérer sur un autre téléphone : ton code ci-dessous.</p>
+      <div class="row2"><button class="btn ghost" id="p-bknow">Sauvegarder maintenant</button><button class="btn ghost" id="p-bkrest">Restaurer</button></div>
       <h2>Mon code profil</h2>
       <div class="code small">${esc(S.me.code)}</div>
       <p class="hint">Note-le : si tu changes de téléphone ou réinstalles l'appli, ce code récupère ton profil, tes partenaires et tes parties.</p>
       <button class="btn ghost full" id="p-restore">J'ai déjà un profil (saisir un code)</button>
-      <h2>Sauvegarde</h2>
+      <h2>Fichier de secours</h2>
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
+    $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
+    $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return alert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
     $app.querySelector('#p-restore').onclick = async () => { const c = prompt('Code de ton profil :'); if (!c) return; try { await restoreProfile(c); toast('Profil récupéré 👍'); viewProfile(); } catch (e) { alert(e.message); } };
     $app.querySelector('#p-save').onclick = () => {
       S.me.name = $app.querySelector('#p-name').value.trim(); S.me.index = $app.querySelector('#p-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#p-tee').value;
@@ -1049,7 +1173,7 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullMyGames().then(pullFollowGames);
+    pullMyGames().then(pullFollowGames).then(scheduleBackup);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
   }
   route();
