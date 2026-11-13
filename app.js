@@ -121,7 +121,7 @@
       // on garde les scores locaux encore en file d'attente
       if (local) S.queue.filter(o => o.table === 'scores' && o.row.game_id === id).forEach(o => { (g.scores[o.row.player_id] = g.scores[o.row.player_id] || {})[o.row.hole] = { strokes: o.row.strokes, putts: o.row.putts, pickup: o.row.pickup }; });
       const wasDone = local && local.game.status === 'done';
-      S.games[id] = { ...g, mine: local ? local.mine : true, follow: local ? !!local.follow : false }; saveGames();
+      S.games[id] = { ...g, mine: local ? local.mine : true, follow: local ? !!local.follow : false, watch: local ? !!local.watch : false }; saveGames();
       rememberPartners(S.games[id]);
       if (local && !wasDone && g.game.status === 'done') celebrate(id);
       return true;
@@ -254,7 +254,7 @@
   }
   async function pullFollowGames() {
     // nettoyage : parties suivies terminées depuis plus de 2 jours
-    Object.values(S.games).forEach(g => { if (g.follow && (!S.me.follow || (g.game.status === 'done' && Date.now() - new Date(g.game.play_date + 'T23:59').getTime() > 2 * 864e5))) delete S.games[g.game.id]; });
+    Object.values(S.games).forEach(g => { if (g.follow && ((!S.me.follow && !g.watch) || (g.game.status === 'done' && Date.now() - new Date(g.game.play_date + 'T23:59').getTime() > 2 * 864e5))) delete S.games[g.game.id]; });
     saveGames();
     const ids = followIds();
     if (!remoteOn() || !ids.length) { subscribeMe(); return; }
@@ -504,6 +504,7 @@
     if (r === 'course' && a) return viewCourseEdit(a);
     if (r === 'profile') return viewProfile();
     if (r === 'stats') return viewStats();
+    if (r === 'live') return viewLive();
     return viewHome();
   }
   window.addEventListener('hashchange', route);
@@ -543,12 +544,14 @@
       <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div class="row2"><a class="btn big" href="#/new">＋ Nouvelle partie</a><button class="btn big ghost" data-act="join">Rejoindre</button></div>
+      <a class="btn big full live" href="#/live">📺 Live <span id="livecount"></span></a>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 15).map(card).join('') : '<p class="muted">Aucune partie terminée.</p>'}
       <div class="row3"><a class="btn ghost" href="#/stats">📊 Stats</a><a class="btn ghost" href="#/courses">🗺️ Parcours</a><a class="btn ghost" href="#/profile">⚙️ Réglages</a></div>
     </main>`;
     updateSyncBadge();
+    if (remoteOn()) fetchLive().then(list => { const el = document.getElementById('livecount'); if (el && list.length) el.textContent = '· ' + list.length + ' partie' + (list.length > 1 ? 's' : '') + ' en cours'; });
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
 
@@ -644,15 +647,17 @@
       const me = myPlayer(g); const sc = me ? (scoresOf(g)[me.id] || {}) : {};
       S.hole[gid] = holes.find(h => !sc[h]) || holes[0];
     }
-    $app.innerHTML = topbar(g.game.course.name, '#/', `<button class="icon" id="g-invite" aria-label="Inviter">📨</button>`) +
-      `<nav class="tabs">${[['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']].map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"></main>`;
+    const spect = !!g.follow;
+    if (spect && (S.tab === 'trou' || S.tab === 'carte')) S.tab = 'classement';
+    const tabs = spect ? [['classement', '📺 Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
+    $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="icon" id="g-invite" aria-label="Inviter">📨</button>`) +
+      `<nav class="tabs">${tabs.map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"></main>`;
     updateSyncBadge();
     $app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; $app.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('on', x === b)); renderGameBody(); });
-    $app.querySelector('#g-invite').onclick = () => showInvite(g);
-    startGPS();
+    if (!spect) { $app.querySelector('#g-invite').onclick = () => showInvite(g); startGPS(); }
     subscribe(gid);
-    rememberPartners(g);
-    const lc = getCourse(g.game.course_id);
+    if (!spect) rememberPartners(g);
+    const lc = spect ? null : getCourse(g.game.course_id);
     if (lc && !lc._osm && !lc.holes.some(h => h.gps && h.gps.center) && navigator.onLine) autoFlags(lc.id, false);
     if (remoteOn()) refreshGame(gid).then(ok => ok && liveRender());
     renderGameBody();
@@ -850,7 +855,10 @@
   function renderBoard(body, g) {
     const course = gameCourse(g);
     const rows = C.leaderboard(g.players, g.game, course, scoresOf(g));
-    let html = `<section class="card"><b>${FORMATS[g.game.format]}</b><small>${MODES[g.game.mode]} · repère ${esc(teeName(course, g.game.tee))} · ${frDate(g.game.play_date)}${g.game.status === 'done' ? ' · terminée' : ''}</small></section>`;
+    const spect = !!g.follow;
+    const holesAll = C.holesFor(g.game.mode, course.holes.length);
+    const where = spect && g.game.status !== 'done' ? `<section class="card where"><b>📍 Où ils en sont</b>${g.players.map(p => { const sc = scoresOf(g)[p.id] || {}; const n = holesAll.filter(h => sc[h]).length; const last = [...holesAll].reverse().find(h => sc[h]); const ls = last ? sc[last] : null; return `<div class="wrow"><span>${esc(p.name)}</span><span>${n >= holesAll.length ? 'Terminé' : 'Trou ' + (holesAll[n] || holesAll[0])}</span><small>${last ? 'au ' + last + ' : ' + (ls.pickup ? 'X' : C.scoreName(ls.strokes, course.holes[last - 1].par, false)) : 'pas encore parti'}</small></div>`; }).join('')}</section>` : '';
+    let html = where + `<section class="card"><b>${FORMATS[g.game.format]}</b><small>${MODES[g.game.mode]} · repère ${esc(teeName(course, g.game.tee))} · ${frDate(g.game.play_date)}${g.game.status === 'done' ? ' · terminée' : ''}</small></section>`;
     if (g.game.format === 'match') {
       const ps = g.players; const duels = [];
       for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) duels.push(C.matchPlay(ps[i], ps[j], g.game, course, scoresOf(g)[ps[i].id] || {}, scoresOf(g)[ps[j].id] || {}));
@@ -865,8 +873,8 @@
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
       <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée en double bogey net pour le brut/net.</p>
-      <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>
-      <button class="btn ghost full danger" id="b-del">🗑️ Supprimer la partie</button>`;
+      <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' || spect ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>
+      <button class="btn ghost full danger" id="b-del">${spect ? '👋 Ne plus suivre' : '🗑️ Supprimer la partie'}</button>`;
     body.innerHTML = html;
     body.querySelector('#b-share').onclick = () => {
       const lines = rows.map((r, i) => `${i + 1}. ${r.name} — ${g.game.format === 'stableford' ? r.points + ' pts · ' : ''}brut ${r.gross} (${fmtPar(r.toPar)}) · net ${r.net}`);
@@ -894,6 +902,65 @@
       <div class="legend"><span class="sc eagle">3</span>Eagle <span class="sc birdie">3</span>Birdie <span class="sc par">4</span>Par <span class="sc bogey">5</span>Bogey <span class="sc dbl">6</span>Double+ <span class="sc pick">X</span>Ramassée</div>
       <button class="btn big full" id="c-share">📤 Partager la carte de score</button>`;
     body.querySelector('#c-share').onclick = () => shareCardImage(g);
+  }
+
+  /* --- 📺 Live : parties en cours des copains --- */
+  async function fetchLive() {
+    if (!remoteOn()) return [];
+    try {
+      const since = new Date(Date.now() - 14 * 3600e3).toISOString();
+      const { data: games } = await sb.from('games').select('*').eq('status', 'open').gte('created_at', since).order('created_at', { ascending: false }).limit(30);
+      if (!games || !games.length) return [];
+      const ids = games.map(g => g.id);
+      const [{ data: players }, { data: scores }, { data: events }] = await Promise.all([
+        sb.from('players').select('*').in('game_id', ids).order('created_at'),
+        sb.from('scores').select('*').in('game_id', ids),
+        sb.from('events').select('*').in('game_id', ids).order('created_at')
+      ]);
+      return games.map(game => {
+        const g = { game, players: (players || []).filter(p => p.game_id === game.id), scores: {}, events: (events || []).filter(e => e.game_id === game.id) };
+        (scores || []).filter(r => r.game_id === game.id).forEach(r => { (g.scores[r.player_id] = g.scores[r.player_id] || {})[r.hole] = { strokes: r.strokes, putts: r.putts, pickup: r.pickup }; });
+        return g;
+      }).filter(g => g.players.length);
+    } catch (e) { return []; }
+  }
+  let liveChannel = null, liveTimer2 = null;
+  async function viewLive() {
+    $app.innerHTML = topbar('📺 Live', '#/') + '<main id="livebody"><p class="muted">Recherche des parties en cours…</p></main>';
+    updateSyncBadge();
+    if (!remoteOn()) { document.getElementById('livebody').innerHTML = '<p class="err">Serveur non configuré.</p>'; return; }
+    const draw = async () => {
+      const list = await fetchLive();
+      const el = document.getElementById('livebody'); if (!el) return;
+      if (!list.length) { el.innerHTML = '<div class="empty">⛳<p>Aucune partie en cours pour l\'instant.</p><small>Dès que des copains jouent, leurs parties apparaissent ici en direct.</small></div>'; return; }
+      el.innerHTML = '<p class="hint">Parties en cours des copains, mises à jour en direct. Touche une partie pour la suivre.</p>' + list.map(g => {
+        const course = g.game.course; const holesAll = C.holesFor(g.game.mode, course.holes.length);
+        const rows = C.leaderboard(g.players, g.game, course, g.scores);
+        const done = Math.max(0, ...g.players.map(p => holesAll.filter(h => (g.scores[p.id] || {})[h]).length));
+        const lastEv = g.events.filter(e => e.type !== 'tournee').slice(-1)[0];
+        const evTxt = lastEv ? (lastEv.type === 'rouge' ? '🍺 ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
+        const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
+        return `<button class="livecard" data-g="${g.game.id}"><div class="lc-top"><b>${esc(course.name)}</b><span class="livedot">● LIVE</span></div>
+          <small>${FORMATS[g.game.format]} · trou ${Math.min(done + 1, holesAll.length)}/${holesAll.length}${mine ? ' · ta partie' : ''}</small>
+          <ol>${rows.slice(0, 4).map(r => `<li><span>${esc(r.name)}</span><b>${r.played ? (g.game.format === 'stableford' ? r.points + ' pts' : fmtPar(g.game.format === 'brut' ? r.toPar : r.netToPar)) : '–'}</b></li>`).join('')}</ol>
+          ${evTxt ? `<div class="lc-ev">${evTxt}</div>` : ''}</button>`;
+      }).join('');
+      el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
+        const g = list.find(x => x.game.id === b.dataset.g);
+        if (!S.games[g.game.id]) { S.games[g.game.id] = { ...g, mine: false, follow: true, watch: true }; (g.events || []).forEach(e => S.seen.add(e.id)); saveGames(); subscribeMe(); }
+        S.tab = 'classement'; location.hash = '#/game/' + g.game.id;
+      });
+    };
+    await draw();
+    if (liveChannel) sb.removeChannel(liveChannel);
+    const again = () => { clearTimeout(liveTimer2); liveTimer2 = setTimeout(() => { if (location.hash === '#/live') draw(); }, 800); };
+    liveChannel = sb.channel('live-all')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scores' }, again)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, again)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events' }, again)
+      .subscribe();
+    const stop = () => { if (location.hash !== '#/live') { if (liveChannel) { sb.removeChannel(liveChannel); liveChannel = null; } window.removeEventListener('hashchange', stop); } };
+    window.addEventListener('hashchange', stop);
   }
 
   /* --- Suppression d'une partie --- */
