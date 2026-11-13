@@ -39,6 +39,8 @@
   if (S.me.xcap == null) S.me.xcap = 4;
   if (!S.me.theme) S.me.theme = 'auto';
   if (S.me.detect == null) S.me.detect = true;
+  if (S.me.cardIcons == null) S.me.cardIcons = false;
+  const NO_CARD_ICON = ['tournee', 'birdie', 'eagle']; // déjà visibles via le rond rouge
   function applyBig() { if (S.me.big) document.documentElement.dataset.big = '1'; else delete document.documentElement.dataset.big; }
   applyBig();
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
@@ -1151,7 +1153,14 @@
     const holes = C.holesFor(g.game.mode, course.holes.length);
     const cols = cardCols(g);
     const sums = cols.map(c => C.playerSummary(c.p, c.gm, course, scoresOf(g)[c.p.id] || {}));
-    const cell = (s, h) => { const ph = s.perHole[h]; if (!ph || ph.gross == null) return '<td></td>'; const d = ph.gross - ph.par; return `<td><span class="sc ${ph.pickup ? 'pick' : scoreCls(d)}">${ph.pickup ? 'X' : ph.raw}</span>${g.game.format === 'stableford' ? `<sub>${ph.points}</sub>` : ''}</td>`; };
+    const evIcons = (s, h) => {
+      if (!S.me.cardIcons) return '';
+      const col = cols.find(c => c.p.id === s.playerId); const ids = col && col.p.members ? col.p.members.map(m => m.id) : [s.playerId];
+      const ev = (g.events || []).filter(e => e.hole === h && ids.includes(e.player_id) && !NO_CARD_ICON.includes(e.type));
+      if (!ev.length) return '';
+      return `<span class="evi">${ev.map(e => `<i title="${esc(e.type === 'rouge' ? 'Pas passé les rouges' : (e.type === 'autre' && e.label ? e.label : shotOf(e.type)[2]))}">${e.type === 'rouge' ? '🍺' : shotOf(e.type)[1]}</i>`).join('')}</span>`;
+    };
+    const cell = (s, h) => { const ph = s.perHole[h]; const ic = evIcons(s, h); if (!ph || ph.gross == null) return `<td>${ic}</td>`; const d = ph.gross - ph.par; return `<td><span class="sc ${ph.pickup ? 'pick' : scoreCls(d)}">${ph.pickup ? 'X' : ph.raw}</span>${g.game.format === 'stableford' ? `<sub>${ph.points}</sub>` : ''}${ic}</td>`; };
     const sub = (s, hs) => { let gr = 0, pt = 0, n = 0; hs.forEach(h => { const ph = s.perHole[h]; if (ph && ph.gross != null) { gr += ph.gross; pt += ph.points || 0; n++; } }); return n ? `<td><b>${gr}</b>${g.game.format === 'stableford' ? `<sub>${pt}</sub>` : ''}</td>` : '<td></td>'; };
     const front = holes.filter(h => h <= 9), back = holes.filter(h => h > 9);
     const row = h => `<tr><td class="h">${h}</td><td>${course.holes[h - 1].par}</td><td class="si">${course.holes[h - 1].si}</td>${sums.map(s => cell(s, h)).join('')}</tr>`;
@@ -1160,6 +1169,7 @@
       ${front.map(row).join('')}${front.length && back.length ? tot('Aller', front) : ''}${back.map(row).join('')}${front.length && back.length ? tot('Retour', back) : ''}${tot('Total', holes)}
       <tr class="tot"><td colspan="3">Putts</td>${sums.map(s => `<td>${s.putts != null ? s.putts : ''}</td>`).join('')}</tr>
       </tbody></table></div>
+      ${S.me.cardIcons && (g.events || []).some(e => !NO_CARD_ICON.includes(e.type)) ? `<div class="legend evleg">${[...new Set((g.events || []).filter(e => !NO_CARD_ICON.includes(e.type)).map(e => e.type))].map(t => `<span>${t === 'rouge' ? '🍺 Pas passé les rouges' : shotOf(t)[1] + ' ' + shotOf(t)[2]}</span>`).join('')}</div>` : ''}
       <div class="legend"><span class="sc eagle">3</span>Eagle <span class="sc birdie">3</span>Birdie <span class="sc par">4</span>Par <span class="sc bogey">5</span>Bogey <span class="sc dbl">6</span>Double+ <span class="sc pick">X</span>Ramassée</div>
       <button class="btn big full" id="c-share">📤 Partager la carte de score</button>`;
     body.querySelector('#c-share').onclick = () => shareCardImage(g);
@@ -1512,6 +1522,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
+      <label class="switch"><input type="checkbox" id="p-icons" ${S.me.cardIcons ? 'checked' : ''}><span>👏 Beaux coups sur la carte de score<small>Petites icônes (🚀 🎯 ⛳ 🍺…) dans les cases des trous concernés</small></span></label>
       <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via 👓 en haut d'une partie)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
@@ -1545,6 +1556,7 @@
     updateSyncBadge();
     $app.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { S.me.theme = b.dataset.th; saveMe(); applyTheme(); $app.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelector('#p-xcap').onchange = e => { S.me.xcap = Number(e.target.value); saveMe(); toast('Croix = par + ' + S.me.xcap + ' pour tes prochaines parties'); };
+    $app.querySelector('#p-icons').onchange = e => { S.me.cardIcons = e.target.checked; saveMe(); };
     $app.querySelector('#p-big').onchange = e => { S.me.big = e.target.checked; saveMe(); applyBig(); };
     $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
