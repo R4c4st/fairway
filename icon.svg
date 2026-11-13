@@ -1,9 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#14532d"/>
-  <ellipse cx="256" cy="392" rx="170" ry="52" fill="#22a052"/>
-  <ellipse cx="292" cy="392" rx="22" ry="8" fill="#0b2e18"/>
-  <rect x="284" y="110" width="14" height="284" rx="7" fill="#f4f4f4"/>
-  <path d="M298 112 L420 160 L298 208 Z" fill="#e8272b"/>
-  <circle cx="190" cy="356" r="30" fill="#fff"/>
-  <circle cx="182" cy="348" r="4" fill="#d4d4d4"/><circle cx="198" cy="350" r="4" fill="#d4d4d4"/><circle cx="190" cy="364" r="4" fill="#d4d4d4"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f7a43"/><stop offset="1" stop-color="#0f3f22"/></linearGradient>
+    <linearGradient id="beer" x1="0" x2="1"><stop offset="0" stop-color="#e99a00"/><stop offset=".45" stop-color="#ffc83d"/><stop offset="1" stop-color="#d98a00"/></linearGradient>
+    <radialGradient id="ball" cx=".38" cy=".35" r=".7"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#d9dde0"/></radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- fairway -->
+  <ellipse cx="256" cy="452" rx="210" ry="44" fill="#2ea25a" opacity=".55"/>
+  <!-- mât + drapeau -->
+  <rect x="300" y="64" width="12" height="232" rx="6" fill="#f4f4f4"/>
+  <path d="M312 68 Q370 82 420 76 Q392 104 418 132 Q366 126 312 140 Z" fill="#e8272b"/>
+  <!-- anse -->
+  <path d="M352 236 Q420 236 420 304 Q420 372 352 372" fill="none" stroke="#f4f4f4" stroke-width="26" stroke-linecap="round"/>
+  <!-- chope -->
+  <path d="M132 222 L364 222 L352 428 Q244 446 144 428 Z" fill="url(#beer)"/>
+  <g fill="#fff" opacity=".55"><circle cx="196" cy="380" r="7"/><circle cx="226" cy="336" r="5"/><circle cx="292" cy="392" r="6"/><circle cx="270" cy="300" r="4"/><circle cx="318" cy="344" r="5"/></g>
+  <path d="M164 250 L174 410" stroke="#fff" stroke-width="12" stroke-linecap="round" opacity=".35"/>
+  <path d="M132 222 L364 222 L352 428 Q244 446 144 428 Z" fill="none" stroke="#f4f4f4" stroke-width="10" stroke-linejoin="round"/>
+  <!-- mousse -->
+  <g fill="#fffaf0">
+    <circle cx="150" cy="222" r="34"/><circle cx="198" cy="204" r="40"/><circle cx="252" cy="200" r="38"/><circle cx="304" cy="208" r="36"/><circle cx="350" cy="224" r="30"/>
+    <rect x="124" y="214" width="250" height="38" rx="18"/>
+    <path d="M150 248 Q154 290 168 270 Q176 252 180 248 Z"/>
+  </g>
+  <!-- balle de golf dans la mousse -->
+  <circle cx="226" cy="186" r="30" fill="url(#ball)" stroke="#c9ced2" stroke-width="2"/>
+  <g fill="#c4c9cd"><circle cx="214" cy="176" r="3.2"/><circle cx="228" cy="172" r="3.2"/><circle cx="240" cy="180" r="3.2"/><circle cx="220" cy="190" r="3.2"/><circle cx="234" cy="194" r="3.2"/><circle cx="210" cy="200" r="3"/><circle cx="244" cy="196" r="3"/></g>
 </svg>
