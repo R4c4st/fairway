@@ -473,7 +473,7 @@
   /* ---------- Parties ---------- */
   function createGame(opts) {
     const course = getCourse(opts.courseId);
-    const snap = JSON.parse(JSON.stringify(course)); delete snap._updated;
+    const snap = JSON.parse(JSON.stringify(course)); delete snap._updated; snap._hcp = !!opts.hcp;
     const game = { id: uid(), code: code6(), course_id: course.id, course: snap, tee: opts.tee, mode: opts.mode, format: opts.format, play_date: opts.date || today(), tee_time: opts.time || null, status: 'open', created_by: S.me.name, created_at: new Date().toISOString() };
     const players = opts.players.map((p, i) => ({ id: uid(), game_id: game.id, device_id: i === 0 ? S.me.deviceId : (p.device_id || null), name: p.name, idx: p.idx === '' ? null : Number(p.idx), tee: p.tee || opts.tee, created_at: new Date(Date.now() + i).toISOString() }));
     if (opts.teams && opts.teams.length) {
@@ -516,7 +516,7 @@
     const link = location.origin + location.pathname + '#/join/' + g.game.code;
     const c = g.game.course;
     const when = frDate(g.game.play_date) + (g.game.tee_time ? ' à ' + g.game.tee_time : '');
-    return { link, text: '⛳ Partie de golf — ' + c.name + '\n📅 ' + when + '\n🏌️ ' + FORMATS[g.game.format] + ' · ' + MODES[g.game.mode] + ' · repère ' + teeName(c, g.game.tee) + '\nRejoins la partie : ' + link + '\n(code ' + g.game.code + ')' };
+    return { link, text: '⛳ Partie de golf — ' + c.name + '\n📅 ' + when + '\n🏌️ ' + FORMATS[g.game.format] + ' · ' + MODES[g.game.mode] + ' · repère ' + teeName(c, g.game.tee) + (C.noHcp(g.game) ? ' · en brut' : ' · avec index') + '\nRejoins la partie : ' + link + '\n(code ' + g.game.code + ')' };
   }
   const teeName = (c, id) => ((c.tees || []).find(t => t.id === id) || {}).name || id;
 
@@ -605,7 +605,7 @@
   /* --- Nouvelle partie --- */
   function viewNew() {
     const courses = Object.values(allCourses());
-    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'stableford', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [] };
+    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'stableford', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [], hcp: false };
     const teamFmt = () => st.format === 'scramble' || st.format === 'combo';
     const nTeams = () => st.format === 'combo' ? 2 : Math.max(2, Math.ceil(st.players.length / st.teamSize));
     const fixTeams = () => { st.assign = st.players.map((_, i) => st.assign[i] != null && st.assign[i] < nTeams() ? st.assign[i] : -1); for (let k = 0; k < nTeams(); k++) if (!st.tnames[k]) st.tnames[k] = TEAM_NAMES[(k + Math.floor(Math.random() * TEAM_NAMES.length)) % TEAM_NAMES.length]; if (new Set(st.tnames.slice(0, nTeams())).size < nTeams()) st.tnames = st.tnames.map((n, k) => TEAM_NAMES[k % TEAM_NAMES.length]); };
@@ -624,7 +624,7 @@
       if (st.format === 'combo') st.mode = '18';
       if (teamFmt()) fixTeams();
       const teamsHtml = !teamFmt() ? '' : `<h2>Équipes</h2>
-        ${st.format === 'combo' ? '<p class="hint">Combo : 2 équipes. Trous 1-9 en scramble, trous 10-18 en match play 1 contre 1 (le meilleur index contre le meilleur index, etc.). 1 point le scramble, 1 point par match, l\'équipe qui perd paie la tournée 🍻</p>' : '<p class="hint">Scramble : chacun joue, on garde la meilleure balle, un seul score par équipe. Handicap d\'équipe WHS (à 2 : 35 % / 15 %, à 4 : 25/20/15/10 %).</p>'}
+        ${st.format === 'combo' ? '<p class="hint">Combo : 2 équipes. Trous 1-9 en scramble, trous 10-18 en match play 1 contre 1 (le meilleur index contre le meilleur index, etc.). 1 point le scramble, 1 point par match, l\'équipe qui perd paie la tournée 🍻</p>' : '<p class="hint">Scramble : chacun joue, on garde la meilleure balle, un seul score par équipe.' + (st.hcp ? ' Handicap d\'équipe WHS (à 2 : 35 % / 15 %, à 4 : 25/20/15/10 %).' : '') + '</p>'}
         <div class="seg"><button data-ts="2" class="${st.teamSize === 2 ? 'on' : ''}">Équipes de 2</button><button data-ts="4" class="${st.teamSize === 4 ? 'on' : ''}">Équipes de 4</button></div>
         <div class="row2"><button class="btn ghost" id="t-rand">🎲 Tirage au sort</button><button class="btn ghost" id="t-bal">⚖️ Équilibrer</button></div>
         <div id="teams">${Array.from({ length: nTeams() }, (_, k) => `<div class="teamcard" style="border-color:${TEAM_COLORS[k % TEAM_COLORS.length]}"><div class="tchead">${teamDot(TEAM_COLORS[k % TEAM_COLORS.length])}<input data-tn="${k}" value="${esc(st.tnames[k])}"><span class="tcount">${st.assign.filter(a => a === k).length}/${st.teamSize}</span></div><div class="tmem">${st.players.map((p, i) => st.assign[i] === k ? `<span class="tchip">${esc(p.name || '?')}</span>` : '').join('') || '<small>Personne</small>'}</div></div>`).join('')}</div>
@@ -633,10 +633,11 @@
         <label>Parcours<select id="n-course">${courses.map(x => `<option value="${esc(x.id)}" ${x.id === st.courseId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
         <div class="row2"><label>Repère<select id="n-tee">${c.tees.map(t => `<option value="${esc(t.id)}" ${t.id === st.tee ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <label>Trous<select id="n-mode" ${st.format === 'combo' ? 'disabled' : ''}>${Object.entries(MODES).filter(([k]) => c.holes.length >= 18 || k !== 'back').map(([k, v]) => `<option value="${k}" ${k === st.mode ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
-        <label>Formule<select id="n-format">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+        <label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => st.hcp || k !== 'net').map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${!st.hcp && k === 'brut' ? 'Stroke play' : v}</option>`).join('')}</select></label>
+        <label class="switch"><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><span>Prendre en compte les index<small>${st.hcp ? 'Coups reçus selon l\'index de chacun (net, Stableford net, handicap d\'équipe)' : 'Décoché : tout le monde joue en brut, à égalité'}</small></span></label>
         <div class="row2"><label>Date<input type="date" id="n-date" value="${st.date}"></label><label>Départ<input type="time" id="n-time" value="${st.time}"></label></div>
         <h2>Joueurs</h2>
-        <div id="n-players">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
+        <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
         ${partners.length ? `<h2>Mes partenaires</h2><div class="pick">${partners.map(m => `<button data-pk="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${st.players.some(p => p.key === m.key) ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`).join('')}</div><p class="hint">📱 = a l'appli : la partie apparaîtra directement sur son téléphone.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint">Tes potes peuvent aussi se rajouter eux-mêmes avec le lien d'invitation, une fois la partie créée.</p>
@@ -647,6 +648,7 @@
       updateSyncBadge();
       const bind = (id, k) => { $app.querySelector(id).onchange = e => { st[k] = e.target.value; draw(); }; };
       bind('#n-course', 'courseId'); bind('#n-tee', 'tee'); bind('#n-mode', 'mode'); bind('#n-format', 'format');
+      $app.querySelector('#n-hcp').onchange = e => { st.hcp = e.target.checked; if (!st.hcp && st.format === 'net') st.format = 'brut'; draw(); };
       $app.querySelector('#n-date').onchange = e => (st.date = e.target.value);
       $app.querySelector('#n-time').onchange = e => (st.time = e.target.value);
       $app.querySelectorAll('#n-players input').forEach(inp => inp.oninput = e => { st.players[+e.target.dataset.i][e.target.dataset.f] = e.target.value; });
@@ -792,7 +794,7 @@
       const ph = s.perHole[h];
       const cls = cur.pickup ? 'pick' : (cur.strokes != null ? scoreCls(cur.strokes - ch.par) : '');
       return `<div class="player" data-pid="${p.id}">
-        <div class="pname"><b>${p.members ? teamDot(p.color) : ''}${esc(p.name)}${p.device_id === S.me.deviceId || (mt && p.id === mt.id) ? ' <span class="tag">moi</span>' : ''}</b>${p.members ? `<small class="mem">${p.members.map(m => esc(m.name)).join(' · ')}</small>` : ''}<small>HCP ${p.members ? 'équipe' : 'jeu'} ${s.ph} · ${recv > 0 ? '●'.repeat(recv) + ' reçoit ' + recv : (recv < 0 ? 'rend ' + (-recv) : 'pas de coup')} · ${g.game.format === 'stableford' ? s.points + ' pts' : 'net ' + fmtPar(s.netToPar)}</small></div>
+        <div class="pname"><b>${p.members ? teamDot(p.color) : ''}${esc(p.name)}${p.device_id === S.me.deviceId || (mt && p.id === mt.id) ? ' <span class="tag">moi</span>' : ''}</b>${p.members ? `<small class="mem">${p.members.map(m => esc(m.name)).join(' · ')}</small>` : ''}<small>${C.noHcp(g.game) ? (g.game.format === 'stableford' ? s.points + ' pts' : (s.played ? fmtPar(s.toPar) : '–')) : `HCP ${p.members ? 'équipe' : 'jeu'} ${s.ph} · ${recv > 0 ? '●'.repeat(recv) + ' reçoit ' + recv : (recv < 0 ? 'rend ' + (-recv) : 'pas de coup')} · ${g.game.format === 'stableford' ? s.points + ' pts' : 'net ' + fmtPar(s.netToPar)}`}</small></div>
         <div class="stepper"><button data-s="-1">−</button><span class="val ${cls}">${shown}</span><button data-s="1">＋</button></div>
         <div class="sub"><span>Putts</span><button data-pt="-1">−</button><span class="pv">${cur.putts != null ? cur.putts : '–'}</span><button data-pt="1">＋</button>
           <button class="pickbtn ${cur.pickup ? 'on' : ''}" data-pick="1" title="Balle ramassée">X</button>
@@ -1030,7 +1032,7 @@
     const spect = !!g.follow;
     const holesAll = C.holesFor(g.game.mode, course.holes.length);
     const where = spect && g.game.status !== 'done' ? `<section class="card where"><b>📍 Où ils en sont</b>${(isTeamGame(g) ? teamPlayers(g) : g.players).map(p => { const sc = scoresOf(g)[p.id] || {}; const n = holesAll.filter(h => sc[h]).length; const last = [...holesAll].reverse().find(h => sc[h]); const ls = last ? sc[last] : null; return `<div class="wrow"><span>${esc(p.name)}</span><span>${n >= holesAll.length ? 'Terminé' : 'Trou ' + (holesAll[n] || holesAll[0])}</span><small>${last ? 'au ' + last + ' : ' + (ls.pickup ? 'X' : C.scoreName(ls.strokes, course.holes[last - 1].par, false)) : 'pas encore parti'}</small></div>`; }).join('')}</section>` : '';
-    let html = where + `<section class="card"><b>${FORMATS[g.game.format]}</b><small>${MODES[g.game.mode]} · repère ${esc(teeName(course, g.game.tee))} · ${frDate(g.game.play_date)}${g.game.status === 'done' ? ' · terminée' : ''}</small></section>`;
+    let html = where + `<section class="card"><b>${FORMATS[g.game.format]}</b><small>${MODES[g.game.mode]} · repère ${esc(teeName(course, g.game.tee))} · ${C.noHcp(g.game) ? 'brut, sans index' : 'avec index'} · ${frDate(g.game.play_date)}${g.game.status === 'done' ? ' · terminée' : ''}</small></section>`;
     if (g.game.format === 'combo') {
       const r = comboResult(g);
       if (r) {
@@ -1048,7 +1050,7 @@
       html += duels.length ? duels.map(m => `<div class="duel"><b>${esc(m.label)}</b><small>${m.strokes ? esc(m.receiver) + ' reçoit ' + m.strokes + ' coup' + (m.strokes > 1 ? 's' : '') : 'Pas de coups rendus'} · ${m.played} trou${m.played > 1 ? 's' : ''} joué${m.played > 1 ? 's' : ''}</small></div>`).join('') : '<p class="muted">Ajoute un 2e joueur pour le match play.</p>';
       html += '<h2>Scores</h2>';
     }
-    html += `${g.game.format === 'combo' ? '<!--' : ''}<table class="board"><thead><tr><th>#</th><th>${isTeamGame(g) ? 'Équipe' : 'Joueur'}</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${isTeamGame(g) ? teamDot((teamPlayers(g).find(t => t.id === r.playerId) || {}).color) : led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>${isTeamGame(g) ? esc((teamPlayers(g).find(t => t.id === r.playerId) || { members: [] }).members.map(m => m.name).join(' · ')) + ' · ' : ''}HCP ${r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>${g.game.format === 'combo' ? '-->' : ''}
+    html += `${g.game.format === 'combo' ? '<!--' : ''}<table class="board ${C.noHcp(g.game) ? 'nohcp' : ''}"><thead><tr><th>#</th><th>${isTeamGame(g) ? 'Équipe' : 'Joueur'}</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${isTeamGame(g) ? teamDot((teamPlayers(g).find(t => t.id === r.playerId) || {}).color) : led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>${isTeamGame(g) ? esc((teamPlayers(g).find(t => t.id === r.playerId) || { members: [] }).members.map(m => m.name).join(' · ')) + ' · ' : ''}${C.noHcp(g.game) ? '' : 'HCP ' + r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>${g.game.format === 'combo' ? '-->' : ''}
       ${(() => {
         const pay = gamePayers(g);
         const lines = pay.last.map(x => `<li>🍻 <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
@@ -1393,7 +1395,7 @@
   function viewWelcome() {
     $app.innerHTML = `<main class="welcome"><img class="wlogo" src="icon.svg" alt="Fairway"><h1>Fairway</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
-      <div class="row2"><label>Index<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
+      <div class="row2"><label>Index (facultatif)<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
       <button class="btn big full" id="w-go">C'est parti</button>
       <button class="btn ghost full" id="w-restore">J'ai déjà un profil</button></div>
       ${!remoteOn() ? '<p class="hint">Serveur non configuré : profil gardé sur ce téléphone seulement.</p>' : ''}</main>`;
@@ -1409,7 +1411,7 @@
   function viewProfile() {
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
-      <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
+      <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>

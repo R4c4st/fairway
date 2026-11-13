@@ -12,6 +12,9 @@
   }
   function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
 
+  // Partie sans handicap (option décochée à la création) : tout le monde à 0
+  const noHcp = game => !!(game && (game.noHcp || (game.course && game.course._hcp === false)));
+
   // Index d'un joueur (champ idx en base, index dans le profil)
   function idxOf(p) { const v = p.idx != null && p.idx !== '' ? p.idx : p.index; return v == null || v === '' ? null : Number(v); }
 
@@ -66,7 +69,7 @@
   // scores: { [hole]: {strokes, putts, pickup} }
   function playerSummary(player, game, course, scores) {
     const tee = (course.tees || []).find(t => t.id === (player.tee || game.tee)) || (course.tees || [])[0];
-    const ph = player.fixedPh != null ? player.fixedPh : playingHandicap(idxOf(player), tee, course, game.mode);
+    const ph = noHcp(game) ? 0 : player.fixedPh != null ? player.fixedPh : playingHandicap(idxOf(player), tee, course, game.mode);
     const recv = strokesPerHole(ph, course, game.mode);
     const holes = holesFor(game.mode, course.holes.length);
     let gross = 0, net = 0, pts = 0, parPlayed = 0, played = 0, putts = 0, puttsN = 0;
@@ -93,8 +96,8 @@
   // Match play net entre 2 joueurs : différence de handicaps de jeu, coups rendus selon SI.
   function matchPlay(pA, pB, game, course, scoresA, scoresB) {
     const tee = id => (course.tees || []).find(t => t.id === id) || (course.tees || [])[0];
-    const phA = playingHandicap(idxOf(pA), tee(pA.tee || game.tee), course, game.mode);
-    const phB = playingHandicap(idxOf(pB), tee(pB.tee || game.tee), course, game.mode);
+    const phA = noHcp(game) ? 0 : playingHandicap(idxOf(pA), tee(pA.tee || game.tee), course, game.mode);
+    const phB = noHcp(game) ? 0 : playingHandicap(idxOf(pB), tee(pB.tee || game.tee), course, game.mode);
     const diff = Math.abs(phA - phB);
     const getter = phA > phB ? 'A' : 'B';
     const recv = strokesPerHole(diff, course, game.mode);
@@ -245,13 +248,14 @@
 
   // Handicap d'équipe scramble (recommandations WHS) : à 2 → 35 % / 15 %, à 4 → 25/20/15/10 %
   function teamHandicap(members, game, course) {
+    if (noHcp(game)) return 0;
     const tee = id => (course.tees || []).find(t => t.id === id) || (course.tees || [])[0];
     const phs = members.map(p => playingHandicap(idxOf(p), tee(p.tee || game.tee), course, game.mode)).sort((a, b) => a - b);
     const w = phs.length >= 4 ? [0.25, 0.20, 0.15, 0.10] : phs.length === 3 ? [0.30, 0.20, 0.10] : phs.length === 2 ? [0.35, 0.15] : [1];
     return Math.round(phs.reduce((s, ph, i) => s + ph * (w[i] || 0), 0));
   }
 
-  const api = { teamHandicap, payers, flagsFromOSM, overpassQuery, holesFor, playingHandicap, strokesPerHole, stablefordPoints, adjustedGross, playerSummary, matchPlay, leaderboard, distance, suggestClub, scoreName };
+  const api = { noHcp, teamHandicap, payers, flagsFromOSM, overpassQuery, holesFor, playingHandicap, strokesPerHole, stablefordPoints, adjustedGross, playerSummary, matchPlay, leaderboard, distance, suggestClub, scoreName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GolfCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
