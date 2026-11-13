@@ -39,6 +39,7 @@
   if (S.me.xcap == null) S.me.xcap = 4;
   S.onlineMap = {};
   S.hidden = new Set(LS.get('fw_hidden', []));
+  S.copains = LS.get('fw_copains', []);
   LS.set('fw_me', S.me);
   S.seen = new Set();
   const saveGames = () => { LS.set('fw_games', S.games); scheduleBackup(); };
@@ -274,6 +275,24 @@
     }
     document.querySelectorAll('[data-dev]').forEach(el => { const on = !!(S.onlineMap[el.dataset.dev] && el.dataset.dev !== S.me.deviceId); el.classList.toggle('isonline', on); });
   }
+
+  /* ---------- Copains inscrits (pour ajouter des joueurs, même hors ligne) ---------- */
+  async function pullCopains() {
+    if (!remoteOn()) return S.copains;
+    try {
+      const { data } = await sb.from('profiles').select('device_id, name, idx').order('name');
+      if (data) { S.copains = data.filter(p => p.name && p.device_id !== S.me.deviceId).map(p => ({ device_id: p.device_id, name: p.name, idx: p.idx })); LS.set('fw_copains', S.copains); }
+    } catch (e) { }
+    return S.copains;
+  }
+  // partenaires (joués ensemble) d'abord, puis tous les inscrits ; dédoublonné par téléphone
+  function copainList() {
+    const out = [], seen = new Set();
+    S.me.partners.slice().sort((a, b) => (b.games || []).length - (a.games || []).length).forEach(m => { const k = m.device_id || m.key; if (seen.has(k)) return; seen.add(k); out.push({ key: m.key, device_id: m.device_id || null, name: m.name, idx: m.idx, partner: true }); });
+    S.copains.forEach(c => { if (seen.has(c.device_id)) return; seen.add(c.device_id); out.push({ key: 'd:' + c.device_id, device_id: c.device_id, name: c.name, idx: c.idx, partner: false }); });
+    return out;
+  }
+  const chipHtml = (m, on, attr) => `<button ${attr}="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${on ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`;
 
   /* ---------- Suivre mes potes ---------- */
   function followIds() { return S.me.follow ? S.me.partners.filter(p => p.device_id).map(p => p.device_id).slice(0, 40) : []; }
@@ -618,7 +637,8 @@
       const res = []; order.forEach((pi, k) => { const round = Math.floor(k / T), pos = k % T; res[pi] = balanced && round % 2 ? T - 1 - pos : pos; });
       return res;
     };
-    const partners = S.me.partners.slice().sort((a, b) => (b.games || []).length - (a.games || []).length).slice(0, 16);
+    let partners = copainList();
+    pullCopains().then(() => { partners = copainList(); if (location.hash === '#/new') draw(); });
     const draw = () => {
       const c = getCourse(st.courseId);
       if (c && !c.tees.find(t => t.id === st.tee)) st.tee = c.tees[0].id;
@@ -640,7 +660,7 @@
         <div class="row2"><label>Date<input type="date" id="n-date" value="${st.date}"></label><label>Départ<input type="time" id="n-time" value="${st.time}"></label></div>
         <h2>Joueurs</h2>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
-        ${partners.length ? `<h2>Mes partenaires</h2><div class="pick">${partners.map(m => `<button data-pk="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${st.players.some(p => p.key === m.key) ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`).join('')}</div><p class="hint">📱 = a l'appli : la partie apparaîtra directement sur son téléphone.</p>` : ''}
+        ${partners.length ? `<h2>Les copains</h2><div class="pick">${partners.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div><p class="hint">Touche un copain pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint">Tes potes peuvent aussi se rajouter eux-mêmes avec le lien d'invitation, une fois la partie créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
@@ -839,7 +859,7 @@
     });
     body.querySelector('#h-note').onclick = () => editNote(g, h);
     body.querySelector('#h-shot').onclick = () => shotSheet(g, h);
-    const add = body.querySelector('#h-addp'); if (add) add.onclick = () => { const n = prompt('Nom du joueur :'); if (!n) return; const i = prompt('Index de ' + n + ' :', ''); addPlayer(g.game.id, { name: n.trim(), idx: (i || '').replace(',', '.') }); renderGameBody(); };
+    const add = body.querySelector('#h-addp'); if (add) add.onclick = () => addPlayerSheet(g);
     const go = d => { S.hole[g.game.id] = holes[idx + d]; S.measure = null; renderGameBody(); window.scrollTo(0, 0); };
     const p = body.querySelector('#h-prev'); if (p) p.onclick = () => go(-1);
     const n = body.querySelector('#h-next'); if (n) n.onclick = () => go(1);
@@ -1172,6 +1192,31 @@
     window.addEventListener('hashchange', stop);
   }
 
+  /* --- Ajouter un joueur en cours de partie --- */
+  function addPlayerSheet(g) {
+    const inGame = new Set(g.players.map(p => p.device_id).filter(Boolean));
+    const el = document.createElement('div'); el.className = 'modal';
+    const draw = () => {
+      const list = copainList().filter(m => !(m.device_id && inGame.has(m.device_id)) && !g.players.some(p => !p.device_id && p.name.toLowerCase() === m.name.toLowerCase()));
+      el.innerHTML = `<div class="sheet"><h2>＋ Ajouter un joueur</h2>
+        ${list.length ? `<div class="pick">${list.map(m => chipHtml(m, false, 'data-ak')).join('')}</div><p class="hint">Point vert = connecté. Hors ligne ? Pas grave, tu saisis ses scores pour lui.</p>` : '<p class="muted">Tous les copains inscrits sont déjà dans la partie.</p>'}
+        <h2>Ou un invité</h2>
+        <div class="form"><div class="row2"><label>Prénom<input id="ap-n"></label>${C.noHcp(g.game) ? '' : '<label>Index<input id="ap-i" inputmode="decimal"></label>'}</div></div>
+        <button class="btn big full" id="ap-go">Ajouter l'invité</button>
+        <button class="btn ghost full" id="ap-x">Fermer</button></div>`;
+      el.querySelectorAll('[data-ak]').forEach(b => b.onclick = () => {
+        const m = list.find(x => x.key === b.dataset.ak); if (!m) return;
+        addPlayer(g.game.id, { name: m.name, idx: m.idx == null ? '' : String(m.idx), device_id: m.device_id });
+        el.remove(); toast(m.name + ' ajouté' + (m.device_id ? ' 📱' : '')); rememberPartners(S.games[g.game.id]); renderGameBody();
+      });
+      el.querySelector('#ap-go').onclick = () => { const n = el.querySelector('#ap-n').value.trim(); if (!n) return; const ii = el.querySelector('#ap-i'); addPlayer(g.game.id, { name: n, idx: ii ? ii.value.replace(',', '.') : '' }); el.remove(); renderGameBody(); };
+      el.querySelector('#ap-x').onclick = () => el.remove();
+    };
+    draw(); document.body.appendChild(el);
+    el.onclick = e => { if (e.target === el) el.remove(); };
+    pullCopains().then(() => { if (el.parentNode) draw(); });
+  }
+
   /* --- Suppression d'une partie --- */
   function deleteGame(g) {
     const others = g.players.filter(p => p.device_id && p.device_id !== S.me.deviceId);
@@ -1479,6 +1524,7 @@
     if (S.me.name) syncProfile();
     pullMyGames().then(pullFollowGames).then(scheduleBackup);
     startPresence();
+    pullCopains();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
   }
