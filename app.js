@@ -33,6 +33,12 @@
     S.me = { deviceId: uid(), name: '', index: '', tee: 'jaune', bag: (window.DEFAULT_BAG || []).map(x => ({ ...x })) };
   }
   if (!S.me.code) S.me.code = code6();
+  // sac : liste standard Driver → LW, on garde les distances déjà saisies
+  (function () {
+    const std = window.STD_CLUBS || [], cur = Array.isArray(S.me.bag) ? S.me.bag : [];
+    const get = n => (cur.find(x => x.club === n) || {}).dist || 0;
+    S.me.bag = std.map(n => ({ club: n, dist: get(n) })).concat(cur.filter(x => !std.includes(x.club) && x.dist > 0));
+  })();
   if (!S.me.partners) S.me.partners = [];
   if (S.me.follow == null) S.me.follow = true;
   if (S.me.visible == null) S.me.visible = true;
@@ -1523,7 +1529,7 @@
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <h2>Mes distances (carry, m)</h2>
       <div class="bag">${S.me.bag.map((b, i) => `<label>${esc(b.club)}<input data-b="${i}" inputmode="numeric" value="${b.dist || ''}"></label>`).join('')}</div>
-      <p class="hint">Servent à proposer le club selon la distance au green.</p>
+      <p class="hint">Remplis seulement les clubs que tu as dans ton sac (laisse vide les autres). Servent à proposer le club selon la distance au green.</p>
       <button class="btn big full" id="p-save">Enregistrer</button>
       <h2>Serveur (parties partagées)</h2>
       <label>URL Supabase<input id="p-url" placeholder="https://xxxx.supabase.co" value="${esc(S.cfg.supabaseUrl || '')}"></label>

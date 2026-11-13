@@ -38,10 +38,6 @@ window.BUILTIN_COURSES = [
   }
 ];
 
-/* Sac par défaut (carry en mètres), modifiable dans Profil */
-window.DEFAULT_BAG = [
-  { club: 'Driver', dist: 165 }, { club: 'Bois 5', dist: 150 }, { club: 'Hybride 4', dist: 142 },
-  { club: 'Hybride 5', dist: 137 }, { club: 'Fer 6', dist: 0 }, { club: 'Fer 7', dist: 0 },
-  { club: 'Fer 8', dist: 125 }, { club: 'Fer 9', dist: 115 }, { club: 'PW', dist: 95 },
-  { club: 'GW', dist: 70 }, { club: 'SW', dist: 55 }
-];
+/* Sac standard (carry en mètres, vide = club non utilisé), du Driver au LW */
+window.STD_CLUBS = ['Driver', 'Bois 3', 'Bois 5', 'Bois 7', 'Hybride 3', 'Hybride 4', 'Hybride 5', 'Fer 4', 'Fer 5', 'Fer 6', 'Fer 7', 'Fer 8', 'Fer 9', 'PW', 'GW', 'SW', 'LW'];
+window.DEFAULT_BAG = window.STD_CLUBS.map(club => ({ club, dist: 0 }));
