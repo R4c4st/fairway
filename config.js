@@ -1,6 +1,5 @@
-/* Configuration serveur (Supabase). Remplis ces 2 valeurs une fois ton projet créé
-   (Supabase > Project Settings > API). Tu peux aussi les saisir dans l'appli : Profil > Serveur. */
+/* Configuration serveur (Supabase) — clé publique, faite pour être visible côté web. */
 window.FAIRWAY_CONFIG = {
-  supabaseUrl: '',      // ex. https://abcdxyz.supabase.co
-  supabaseAnonKey: ''   // clé « anon public »
+  supabaseUrl: 'https://jifaszjdhretgorxlpvs.supabase.co',
+  supabaseAnonKey: 'sb_publishable_UDBqRN5A_sX5vQB5xvrV2Q_uC31GfyM'
 };
