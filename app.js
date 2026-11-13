@@ -240,39 +240,6 @@
     return true;
   }
 
-  /* ---------- Notifications push (appli fermée) ---------- */
-  const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && !!S.cfg.vapidPublicKey;
-  const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
-  function b64uToU8(s) { const p = '='.repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); }
-  async function pushState() {
-    if (!pushSupported()) return 'unsupported';
-    if (Notification.permission === 'denied') return 'denied';
-    const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription();
-    return sub ? 'on' : 'off';
-  }
-  async function enablePush() {
-    if (isIOS() && !isStandalone()) { alert("Sur iPhone : ajoute d'abord Fairway à l'écran d'accueil (Partager > Sur l'écran d'accueil), puis active les notifications depuis l'appli."); return false; }
-    if (!pushSupported()) { alert('Notifications non supportées sur ce navigateur. Utilise Chrome (Android) ou l\'appli installée (iPhone).'); return false; }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') { alert('Notifications refusées. Tu peux les réautoriser dans les réglages du site.'); return false; }
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToU8(S.cfg.vapidPublicKey) });
-    const j = sub.toJSON();
-    push({ t: 'upsert', table: 'push_subs', row: { endpoint: j.endpoint, device_id: S.me.deviceId, sub: j, created_at: new Date().toISOString() } });
-    S.me.push = true; saveMe();
-    return true;
-  }
-  async function disablePush() {
-    try { const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if (sub) { push({ t: 'delete', table: 'push_subs', match: { endpoint: sub.endpoint } }); await sub.unsubscribe(); } } catch (e) { }
-    S.me.push = false; saveMe();
-  }
-  // garde l'abonnement à jour (le navigateur peut le renouveler)
-  async function refreshPushSub() {
-    try { if (!S.me.push || !pushSupported() || Notification.permission !== 'granted') return; const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription(); if (!sub) { await enablePush(); return; } const j = sub.toJSON(); push({ t: 'upsert', table: 'push_subs', row: { endpoint: j.endpoint, device_id: S.me.deviceId, sub: j, created_at: new Date().toISOString() } }); } catch (e) { }
-  }
-
   /* ---------- Suivre mes potes ---------- */
   function followIds() { return S.me.follow ? S.me.partners.filter(p => p.device_id).map(p => p.device_id).slice(0, 40) : []; }
   async function followGame(gid) {
@@ -303,7 +270,7 @@
   /* ---------- Profil serveur & partenaires ---------- */
   function syncProfile() {
     saveMe();
-    push({ t: 'upsert', table: 'profiles', row: { device_id: S.me.deviceId, code: S.me.code, name: S.me.name, idx: S.me.index === '' || S.me.index == null ? null : Number(S.me.index), tee: S.me.tee, bag: S.me.bag, partners: S.me.partners, follow: !!S.me.follow, updated_at: new Date().toISOString() } });
+    push({ t: 'upsert', table: 'profiles', row: { device_id: S.me.deviceId, code: S.me.code, name: S.me.name, idx: S.me.index === '' || S.me.index == null ? null : Number(S.me.index), tee: S.me.tee, bag: S.me.bag, partners: S.me.partners, updated_at: new Date().toISOString() } });
   }
   async function restoreProfile(code) {
     if (!remoteOn()) throw new Error('Serveur non configuré.');
@@ -330,20 +297,20 @@
   }
 
   /* ---------- Moments forts ---------- */
-  function addEvent(gid, ev, silent) {
+  function addEvent(gid, ev) {
     const g = S.games[gid];
-    const row = { id: uid(), game_id: gid, by_name: S.me.name || '?', by_device: S.me.deviceId, created_at: new Date().toISOString(), ...ev };
+    const row = { id: uid(), game_id: gid, by_name: S.me.name || '?', created_at: new Date().toISOString(), ...ev };
     g.events = g.events || []; g.events.push(row); saveGames();
     S.seen.add(row.id);
     push({ t: 'upsert', table: 'events', row });
-    if (!silent) eventPopup(g, row);
+    eventPopup(g, row);
   }
   function removeEvent(gid, id) {
     const g = S.games[gid]; g.events = (g.events || []).filter(e => e.id !== id); saveGames();
     push({ t: 'delete', table: 'events', match: { id } });
   }
   const popQueue = []; let popBusy = false;
-  function eventPopup(g, e) { if (e.type === 'tournee') return; popQueue.push({ g, e }); if (!popBusy) nextPopup(); }
+  function eventPopup(g, e) { popQueue.push({ g, e }); if (!popBusy) nextPopup(); }
   function nextPopup() {
     const it = popQueue.shift(); if (!it) { popBusy = false; return; }
     popBusy = true;
@@ -389,12 +356,6 @@
   }
 
   /* ---------- Fin de partie : la tournée ---------- */
-  function finishGame(gid) {
-    const g = S.games[gid];
-    updateGame(gid, { status: 'done' });
-    const pay = C.payers(g.players, g.game, gameCourse(g), scoresOf(g), g.events);
-    if (!(g.events || []).some(e => e.type === 'tournee')) addEvent(gid, { type: 'tournee', player_id: pay.last.length ? pay.last[0].playerId : null, label: pay.last.map(x => x.name).join(' et ') || null }, true);
-  }
   function celebrate(gid) {
     const g = S.games[gid]; if (!g) return;
     const course = gameCourse(g);
@@ -479,7 +440,7 @@
     const course = getCourse(opts.courseId);
     const snap = JSON.parse(JSON.stringify(course)); delete snap._updated;
     const game = { id: uid(), code: code6(), course_id: course.id, course: snap, tee: opts.tee, mode: opts.mode, format: opts.format, play_date: opts.date || today(), tee_time: opts.time || null, status: 'open', created_by: S.me.name, created_at: new Date().toISOString() };
-    const players = opts.players.map((p, i) => ({ id: uid(), game_id: game.id, device_id: i === 0 ? S.me.deviceId : (p.device_id || null), added_by: S.me.deviceId, name: p.name, idx: p.idx === '' ? null : Number(p.idx), tee: p.tee || opts.tee, created_at: new Date(Date.now() + i).toISOString() }));
+    const players = opts.players.map((p, i) => ({ id: uid(), game_id: game.id, device_id: i === 0 ? S.me.deviceId : (p.device_id || null), name: p.name, idx: p.idx === '' ? null : Number(p.idx), tee: p.tee || opts.tee, created_at: new Date(Date.now() + i).toISOString() }));
     S.games[game.id] = { game, players, scores: {}, events: [], mine: true }; saveGames();
     push({ t: 'upsert', table: 'games', row: game });
     players.forEach(p => push({ t: 'upsert', table: 'players', row: p }));
@@ -498,7 +459,7 @@
   }
   function addPlayer(gid, p) {
     const g = S.games[gid];
-    const row = { id: uid(), game_id: gid, device_id: p.device_id || null, added_by: S.me.deviceId, name: p.name, idx: p.idx === '' || p.idx == null ? null : Number(p.idx), tee: p.tee || g.game.tee, created_at: new Date().toISOString() };
+    const row = { id: uid(), game_id: gid, device_id: p.device_id || null, name: p.name, idx: p.idx === '' || p.idx == null ? null : Number(p.idx), tee: p.tee || g.game.tee, created_at: new Date().toISOString() };
     g.players.push(row); saveGames(); push({ t: 'upsert', table: 'players', row });
     return row;
   }
@@ -581,7 +542,6 @@
     $app.innerHTML = topbar('Fairway') + `<main>
       <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
-      <div id="pushbanner"></div>
       <div class="row2"><a class="btn big" href="#/new">＋ Nouvelle partie</a><button class="btn big ghost" data-act="join">Rejoindre</button></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
@@ -589,7 +549,6 @@
       <div class="row3"><a class="btn ghost" href="#/stats">📊 Stats</a><a class="btn ghost" href="#/courses">🗺️ Parcours</a><a class="btn ghost" href="#/profile">⚙️ Réglages</a></div>
     </main>`;
     updateSyncBadge();
-    if (!S.me.pushAsked && remoteOn()) pushState().then(st => { const el = document.getElementById('pushbanner'); if (!el || st !== 'off') return; el.innerHTML = '<div class="pushban">🔔 Reçois les beaux coups et les tournées même appli fermée<div class="row2"><button class="btn sm" id="pb-yes">Activer</button><button class="btn ghost sm" id="pb-no">Plus tard</button></div></div>'; el.querySelector('#pb-yes').onclick = async () => { S.me.pushAsked = true; saveMe(); const ok = await enablePush(); el.innerHTML = ''; if (ok) toast('🔔 Notifications activées'); }; el.querySelector('#pb-no').onclick = () => { S.me.pushAsked = true; saveMe(); el.innerHTML = ''; }; });
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
 
@@ -775,7 +734,7 @@
     const go = d => { S.hole[g.game.id] = holes[idx + d]; S.measure = null; renderGameBody(); window.scrollTo(0, 0); };
     const p = body.querySelector('#h-prev'); if (p) p.onclick = () => go(-1);
     const n = body.querySelector('#h-next'); if (n) n.onclick = () => go(1);
-    const e = body.querySelector('#h-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { finishGame(g.game.id); S.tab = 'classement'; viewGame(g.game.id); celebrate(g.game.id); } };
+    const e = body.querySelector('#h-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); S.tab = 'classement'; viewGame(g.game.id); celebrate(g.game.id); } };
     const r = body.querySelector('#h-reopen'); if (r) r.onclick = () => { updateGame(g.game.id, { status: 'open' }); renderGameBody(); };
   }
   const rougeEv = (g, pid, h) => (g.events || []).find(e => e.type === 'rouge' && e.player_id === pid && e.hole === h);
@@ -904,7 +863,7 @@
         const lines = pay.last.map(x => `<li>🍻 <b>${esc(x.name)}</b> — ${g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant'}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
         return `<h2>Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}<button class="btn ghost full" id="b-beer">🍺 Qui paie sa tournée ?</button>`;
       })()}
-      ${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'tournee').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'tournee').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
+      ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
       <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée en double bogey net pour le brut/net.</p>
       <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>
       <button class="btn ghost full danger" id="b-del">🗑️ Supprimer la partie</button>`;
@@ -915,7 +874,7 @@
     };
     body.querySelector('#b-beer').onclick = () => celebrate(g.game.id);
     body.querySelector('#b-del').onclick = () => deleteGame(g);
-    const e = body.querySelector('#b-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { finishGame(g.game.id); renderGameBody(); celebrate(g.game.id); } };
+    const e = body.querySelector('#b-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); renderGameBody(); celebrate(g.game.id); } };
   }
 
   /* --- Carte de score --- */
@@ -1180,7 +1139,6 @@
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-push"><span>🔔 Notifications appli fermée<small id="p-push-h">Beaux coups, rouges, tournées et invitations, même téléphone en veille</small></span></label>
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <h2>Mes distances (carry, m)</h2>
       <div class="bag">${S.me.bag.map((b, i) => `<label>${esc(b.club)}<input data-b="${i}" inputmode="numeric" value="${b.dist || ''}"></label>`).join('')}</div>
@@ -1203,9 +1161,6 @@
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
-    const pp = $app.querySelector('#p-push'), ph = $app.querySelector('#p-push-h');
-    pushState().then(st => { pp.checked = st === 'on'; if (st === 'unsupported') { pp.disabled = true; ph.textContent = isIOS() && !isStandalone() ? "Sur iPhone : ajoute d'abord l'appli à l'écran d'accueil" : 'Non disponible sur ce navigateur'; } if (st === 'denied') { pp.disabled = true; ph.textContent = 'Bloquées : réautorise-les dans les réglages du site'; } });
-    pp.onchange = async () => { if (pp.checked) { const ok = await enablePush(); pp.checked = ok; if (ok) toast('🔔 Notifications activées'); } else { await disablePush(); toast('Notifications coupées'); } };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
     $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return alert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
@@ -1240,7 +1195,7 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullMyGames().then(pullFollowGames).then(scheduleBackup).then(refreshPushSub);
+    pullMyGames().then(pullFollowGames).then(scheduleBackup);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
   }
   route();

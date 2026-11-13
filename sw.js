@@ -1,5 +1,5 @@
 /* Fairway — service worker : appli dispo hors ligne sur le parcours */
-const VERSION = 'fairway-v11';
+const VERSION = 'fairway-v10';
 const SHELL = ['./', 'index.html', 'app.js', 'core.js', 'courses.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 const LIBS = /cdn\.jsdelivr\.net|unpkg\.com/;
 const TILES = /arcgisonline\.com/;
@@ -24,22 +24,4 @@ self.addEventListener('fetch', e => {
     const store = TILES.test(url.host) ? VERSION + '-tiles' : VERSION + '-libs';
     e.respondWith(caches.open(store).then(c => c.match(e.request).then(hit => hit || fetch(e.request).then(r => { c.put(e.request, r.clone()); return r; }))));
   }
-});
-
-/* Notifications push (appli fermée) */
-self.addEventListener('push', e => {
-  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) { d = { title: 'Fairway', body: e.data && e.data.text() }; }
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    // appli ouverte et visible : la pop-up de l'appli suffit
-    if (list.some(c => c.visibilityState === 'visible')) return;
-    return self.registration.showNotification(d.title || 'Fairway', { body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png', tag: d.tag, data: { url: d.url || './' }, vibrate: [60, 40, 60] });
-  }));
-});
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || './';
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    for (const c of list) { if ('focus' in c) { c.navigate ? c.navigate(url).catch(() => {}) : null; return c.focus(); } }
-    return self.clients.openWindow(url);
-  }));
 });

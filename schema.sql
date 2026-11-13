@@ -140,20 +140,3 @@ drop policy if exists backups_rw on public.backups;
 create policy backups_rw on public.backups for all to anon using (true) with check (true);
 grant select, insert, update, delete on public.backups to anon, authenticated;
 notify pgrst, 'reload schema';
-
--- ===== v4 : notifications push =====
-alter table public.profiles add column if not exists follow boolean not null default true;
-alter table public.events   add column if not exists by_device text;
-alter table public.players  add column if not exists added_by text;
-create table if not exists public.push_subs (
-  endpoint text primary key,
-  device_id text not null,
-  sub jsonb not null,
-  created_at timestamptz not null default now()
-);
-create index if not exists push_subs_device on public.push_subs(device_id);
-alter table public.push_subs enable row level security;
-drop policy if exists push_subs_rw on public.push_subs;
-create policy push_subs_rw on public.push_subs for all to anon using (true) with check (true);
-grant select, insert, update, delete on public.push_subs to anon, authenticated;
-notify pgrst, 'reload schema';
