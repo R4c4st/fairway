@@ -34,6 +34,7 @@
   }
   if (!S.me.code) S.me.code = code6();
   if (!S.me.partners) S.me.partners = [];
+  if (S.me.follow == null) S.me.follow = true;
   LS.set('fw_me', S.me);
   S.seen = new Set();
   const saveGames = () => LS.set('fw_games', S.games);
@@ -119,7 +120,7 @@
       // on garde les scores locaux encore en file d'attente
       if (local) S.queue.filter(o => o.table === 'scores' && o.row.game_id === id).forEach(o => { (g.scores[o.row.player_id] = g.scores[o.row.player_id] || {})[o.row.hole] = { strokes: o.row.strokes, putts: o.row.putts, pickup: o.row.pickup }; });
       const wasDone = local && local.game.status === 'done';
-      S.games[id] = { ...g, mine: local ? local.mine : true }; saveGames();
+      S.games[id] = { ...g, mine: local ? local.mine : true, follow: local ? !!local.follow : false }; saveGames();
       rememberPartners(S.games[id]);
       if (local && !wasDone && g.game.status === 'done') celebrate(id);
       return true;
@@ -157,16 +158,17 @@
     if (!remoteOn()) return;
     const open = Object.values(S.games).filter(g => g.game.status !== 'done' || Date.now() - new Date(g.game.created_at).getTime() < 864e5).map(g => g.game.id).sort();
     const key = open.join(',');
-    if (meChannel && key === meKey) return;
+    const fk = key + '|' + followIds().join(',');
+    if (meChannel && fk === meKey) return;
     if (meChannel) sb.removeChannel(meChannel);
-    meKey = key;
+    meKey = fk;
     let ch = sb.channel('me-' + S.me.deviceId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: 'device_id=eq.' + S.me.deviceId }, async p => {
         const gid = p.new && p.new.game_id; if (!gid) return;
         if (S.games[gid] && S.games[gid].players.some(x => x.id === p.new.id && x.device_id === S.me.deviceId)) return;
         const fresh = !S.games[gid];
         if (await refreshGame(gid)) {
-          S.games[gid].mine = true; saveGames(); subscribeMe();
+          S.games[gid].mine = true; S.games[gid].follow = false; saveGames(); subscribeMe();
           if (fresh) invitePopup(S.games[gid]);
           if (location.hash === '' || location.hash === '#/') viewHome();
         }
@@ -176,6 +178,8 @@
       ch = ch.on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: 'game_id=' + f }, p => onEvent(p))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: 'id=' + f }, p => onGameUpdate(p.new));
     }
+    const pids = followIds();
+    if (pids.length) ch = ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'players', filter: 'device_id=in.(' + pids.join(',') + ')' }, p => { if (p.new && !S.games[p.new.game_id]) followGame(p.new.game_id); });
     meChannel = ch.subscribe();
   }
   async function pullMyGames() {
@@ -183,7 +187,7 @@
     try {
       const { data } = await sb.from('players').select('game_id').eq('device_id', S.me.deviceId);
       const ids = [...new Set((data || []).map(r => r.game_id))].filter(id => !S.games[id] || S.games[id].game.status !== 'done');
-      for (const id of ids) { if (await refreshGame(id)) S.games[id].mine = true; }
+      for (const id of ids) { if (await refreshGame(id)) { S.games[id].mine = true; S.games[id].follow = false; } }
       saveGames(); subscribeMe();
       if (location.hash === '' || location.hash === '#/') viewHome();
     } catch (e) { }
@@ -202,6 +206,33 @@
     if (!g.events.some(x => x.id === e.id)) g.events.push(e);
     saveGames(); liveRender();
     if (!S.seen.has(e.id)) { S.seen.add(e.id); eventPopup(g, e); }
+  }
+
+  /* ---------- Suivre mes potes ---------- */
+  function followIds() { return S.me.follow ? S.me.partners.filter(p => p.device_id).map(p => p.device_id).slice(0, 40) : []; }
+  async function followGame(gid) {
+    if (!S.me.follow || S.games[gid]) return;
+    try {
+      const g = await fetchGameRemote({ id: gid });
+      if (g.players.some(p => p.device_id === S.me.deviceId)) { S.games[gid] = { ...g, mine: true }; }
+      else S.games[gid] = { ...g, mine: false, follow: true };
+      saveGames(); subscribeMe();
+      if (location.hash === '' || location.hash === '#/') viewHome();
+    } catch (e) { }
+  }
+  async function pullFollowGames() {
+    // nettoyage : parties suivies terminées depuis plus de 2 jours
+    Object.values(S.games).forEach(g => { if (g.follow && (!S.me.follow || (g.game.status === 'done' && Date.now() - new Date(g.game.play_date + 'T23:59').getTime() > 2 * 864e5))) delete S.games[g.game.id]; });
+    saveGames();
+    const ids = followIds();
+    if (!remoteOn() || !ids.length) { subscribeMe(); return; }
+    try {
+      const since = new Date(Date.now() - 2 * 864e5).toISOString();
+      const { data } = await sb.from('players').select('game_id, created_at').in('device_id', ids).gte('created_at', since);
+      const gids = [...new Set((data || []).map(r => r.game_id))].filter(id => !S.games[id]);
+      for (const id of gids) await followGame(id);
+    } catch (e) { }
+    subscribeMe();
   }
 
   /* ---------- Profil serveur & partenaires ---------- */
@@ -461,19 +492,27 @@
   }
   function viewHome() {
     const rounds = myRoundStats();
-    const open = Object.values(S.games).filter(g => g.game.status !== 'done').sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
-    const done = Object.values(S.games).filter(g => g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
+    const potes = Object.values(S.games).filter(g => g.follow).sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
+    const open = Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done').sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
+    const done = Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
     const card = g => {
       const p = myPlayer(g) || g.players[0];
       const s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null;
       const sc = s && s.played ? (g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')') : '—';
       return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
     };
+    const potesCard = g => {
+      const rows = C.leaderboard(g.players, g.game, gameCourse(g), scoresOf(g));
+      const lead = rows[0];
+      const holesDone = Math.max(0, ...rows.map(r => r.played));
+      return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${esc(g.players.map(x => x.name).join(', '))}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead && lead.played ? 'En tête : ' + esc(lead.name) + (g.game.format === 'stableford' ? ' (' + lead.points + ' pts)' : ' (' + fmtPar(g.game.format === 'brut' ? lead.toPar : lead.netToPar) + ')') : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
+    };
     $app.innerHTML = topbar('Fairway') + `<main>
       <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div class="row2"><a class="btn big" href="#/new">＋ Nouvelle partie</a><button class="btn big ghost" data-act="join">Rejoindre</button></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
+      ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 15).map(card).join('') : '<p class="muted">Aucune partie terminée.</p>'}
       <div class="row3"><a class="btn ghost" href="#/stats">📊 Stats</a><a class="btn ghost" href="#/courses">🗺️ Parcours</a><a class="btn ghost" href="#/profile">⚙️ Réglages</a></div>
     </main>`;
@@ -959,6 +998,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
+      <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <h2>Mes distances (carry, m)</h2>
       <div class="bag">${S.me.bag.map((b, i) => `<label>${esc(b.club)}<input data-b="${i}" inputmode="numeric" value="${b.dist || ''}"></label>`).join('')}</div>
@@ -977,6 +1017,7 @@
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
+    $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-restore').onclick = async () => { const c = prompt('Code de ton profil :'); if (!c) return; try { await restoreProfile(c); toast('Profil récupéré 👍'); viewProfile(); } catch (e) { alert(e.message); } };
     $app.querySelector('#p-save').onclick = () => {
       S.me.name = $app.querySelector('#p-name').value.trim(); S.me.index = $app.querySelector('#p-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#p-tee').value;
@@ -1008,8 +1049,8 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullMyGames();
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames(); flush(); } });
+    pullMyGames().then(pullFollowGames);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
   }
   route();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
