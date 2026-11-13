@@ -15,6 +15,9 @@
   // Partie sans handicap (option décochée à la création) : tout le monde à 0
   const noHcp = game => !!(game && (game.noHcp || (game.course && game.course._hcp === false)));
 
+  // Valeur d'une croix (balle ramassée) en stroke play : par + N (+ coups reçus). Anciennes parties : +2
+  const xcapOf = game => game && game.course && game.course._xcap != null ? Number(game.course._xcap) : 2;
+
   // Index d'un joueur (champ idx en base, index dans le profil)
   function idxOf(p) { const v = p.idx != null && p.idx !== '' ? p.idx : p.index; return v == null || v === '' ? null : Number(v); }
 
@@ -51,9 +54,9 @@
 
   // Score retenu pour un trou : null si non joué, sinon {gross, pickup}
   // Balle ramassée (croix) => brut ajusté = par + 2 + coups reçus (double bogey net)
-  function adjustedGross(score, par, recv) {
+  function adjustedGross(score, par, recv, xcap) {
     if (!score) return null;
-    if (score.pickup) return par + 2 + recv;
+    if (score.pickup) return par + (xcap != null ? xcap : 2) + recv;
     if (score.strokes == null) return null;
     return score.strokes;
   }
@@ -77,7 +80,7 @@
     holes.forEach(h => {
       const ch = course.holes[h - 1];
       const s = scores && scores[h];
-      const g = adjustedGross(s, ch.par, recv[h]);
+      const g = adjustedGross(s, ch.par, recv[h], xcapOf(game));
       const p = s ? stablefordPoints(g, ch.par, recv[h], s.pickup) : null;
       perHole[h] = { gross: g, raw: s ? s.strokes : null, pickup: !!(s && s.pickup), recv: recv[h], points: p, par: ch.par, putts: s ? s.putts : null };
       if (g != null) {
@@ -255,7 +258,7 @@
     return Math.round(phs.reduce((s, ph, i) => s + ph * (w[i] || 0), 0));
   }
 
-  const api = { noHcp, teamHandicap, payers, flagsFromOSM, overpassQuery, holesFor, playingHandicap, strokesPerHole, stablefordPoints, adjustedGross, playerSummary, matchPlay, leaderboard, distance, suggestClub, scoreName };
+  const api = { xcapOf, noHcp, teamHandicap, payers, flagsFromOSM, overpassQuery, holesFor, playingHandicap, strokesPerHole, stablefordPoints, adjustedGross, playerSummary, matchPlay, leaderboard, distance, suggestClub, scoreName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GolfCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

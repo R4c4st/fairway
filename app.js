@@ -36,6 +36,7 @@
   if (!S.me.partners) S.me.partners = [];
   if (S.me.follow == null) S.me.follow = true;
   if (S.me.visible == null) S.me.visible = true;
+  if (S.me.xcap == null) S.me.xcap = 4;
   S.onlineMap = {};
   S.hidden = new Set(LS.get('fw_hidden', []));
   LS.set('fw_me', S.me);
@@ -473,7 +474,7 @@
   /* ---------- Parties ---------- */
   function createGame(opts) {
     const course = getCourse(opts.courseId);
-    const snap = JSON.parse(JSON.stringify(course)); delete snap._updated; snap._hcp = !!opts.hcp;
+    const snap = JSON.parse(JSON.stringify(course)); delete snap._updated; snap._hcp = !!opts.hcp; snap._xcap = opts.xcap != null ? Number(opts.xcap) : (S.me.xcap != null ? S.me.xcap : 4);
     const game = { id: uid(), code: code6(), course_id: course.id, course: snap, tee: opts.tee, mode: opts.mode, format: opts.format, play_date: opts.date || today(), tee_time: opts.time || null, status: 'open', created_by: S.me.name, created_at: new Date().toISOString() };
     const players = opts.players.map((p, i) => ({ id: uid(), game_id: game.id, device_id: i === 0 ? S.me.deviceId : (p.device_id || null), name: p.name, idx: p.idx === '' ? null : Number(p.idx), tee: p.tee || opts.tee, created_at: new Date(Date.now() + i).toISOString() }));
     if (opts.teams && opts.teams.length) {
@@ -605,7 +606,7 @@
   /* --- Nouvelle partie --- */
   function viewNew() {
     const courses = Object.values(allCourses());
-    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'brut', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [], hcp: false };
+    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'brut', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [], hcp: false, xcap: S.me.xcap != null ? S.me.xcap : 4 };
     const teamFmt = () => st.format === 'scramble' || st.format === 'combo';
     const nTeams = () => st.format === 'combo' ? 2 : Math.max(2, Math.ceil(st.players.length / st.teamSize));
     const fixTeams = () => { st.assign = st.players.map((_, i) => st.assign[i] != null && st.assign[i] < nTeams() ? st.assign[i] : -1); for (let k = 0; k < nTeams(); k++) if (!st.tnames[k]) st.tnames[k] = TEAM_NAMES[(k + Math.floor(Math.random() * TEAM_NAMES.length)) % TEAM_NAMES.length]; if (new Set(st.tnames.slice(0, nTeams())).size < nTeams()) st.tnames = st.tnames.map((n, k) => TEAM_NAMES[k % TEAM_NAMES.length]); };
@@ -635,6 +636,7 @@
         <label>Trous<select id="n-mode" ${st.format === 'combo' ? 'disabled' : ''}>${Object.entries(MODES).filter(([k]) => c.holes.length >= 18 || k !== 'back').map(([k, v]) => `<option value="${k}" ${k === st.mode ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
         <label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => st.hcp || k !== 'net').map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${!st.hcp && k === 'brut' ? 'Stroke play' : v}</option>`).join('')}</select></label>
         <label class="switch"><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><span>Prendre en compte les index<small>${st.hcp ? 'Coups reçus selon l\'index de chacun (net, Stableford net, handicap d\'équipe)' : 'Décoché : tout le monde joue en brut, à égalité'}</small></span></label>
+        ${st.format === 'stableford' || st.format === 'match' ? '' : `<label>Croix (balle ramassée)<select id="n-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(st.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>`}
         <div class="row2"><label>Date<input type="date" id="n-date" value="${st.date}"></label><label>Départ<input type="time" id="n-time" value="${st.time}"></label></div>
         <h2>Joueurs</h2>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
@@ -648,6 +650,7 @@
       updateSyncBadge();
       const bind = (id, k) => { $app.querySelector(id).onchange = e => { st[k] = e.target.value; draw(); }; };
       bind('#n-course', 'courseId'); bind('#n-tee', 'tee'); bind('#n-mode', 'mode'); bind('#n-format', 'format');
+      const xs = $app.querySelector('#n-xcap'); if (xs) xs.onchange = e => { st.xcap = Number(e.target.value); };
       $app.querySelector('#n-hcp').onchange = e => { st.hcp = e.target.checked; if (!st.hcp && st.format === 'net') st.format = 'brut'; draw(); };
       $app.querySelector('#n-date').onchange = e => (st.date = e.target.value);
       $app.querySelector('#n-time').onchange = e => (st.time = e.target.value);
@@ -1057,7 +1060,7 @@
         return `<h2>Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}<button class="btn ghost full" id="b-beer">🍺 Qui paie sa tournée ?</button>`;
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
-      <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée en double bogey net pour le brut/net.</p>
+      <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée par + ${C.xcapOf(g.game)}${C.noHcp(g.game) ? '' : ' (+ coups reçus)'} en stroke play.</p>
       <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' || spect ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>
       <button class="btn ghost full danger" id="b-del">${spect ? '👋 Ne plus suivre' : '🗑️ Supprimer la partie'}</button>`;
     body.innerHTML = html;
@@ -1414,6 +1417,7 @@
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
+      <label>Croix en stroke play (par défaut)<select id="p-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(S.me.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <h2>Mes distances (carry, m)</h2>
       <div class="bag">${S.me.bag.map((b, i) => `<label>${esc(b.club)}<input data-b="${i}" inputmode="numeric" value="${b.dist || ''}"></label>`).join('')}</div>
@@ -1437,6 +1441,7 @@
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
+    $app.querySelector('#p-xcap').onchange = e => { S.me.xcap = Number(e.target.value); saveMe(); toast('Croix = par + ' + S.me.xcap + ' pour tes prochaines parties'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
