@@ -1586,7 +1586,14 @@
     startPresence();
     pullCopains();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      flush();
+      // au réveil : on recharge la partie ouverte (scores saisis par les autres pendant la veille) et on relance le direct
+      const m = location.hash.match(/^#\/game\/([^/]+)/);
+      if (m && S.games[m[1]]) refreshGame(m[1]).then(ok => { if (ok) liveRender(); subscribe(m[1]); });
+      pullMyGames().then(pullFollowGames);
+    });
   }
   route();
   startDetect();
