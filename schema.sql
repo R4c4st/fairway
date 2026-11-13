@@ -140,3 +140,7 @@ drop policy if exists backups_rw on public.backups;
 create policy backups_rw on public.backups for all to anon using (true) with check (true);
 grant select, insert, update, delete on public.backups to anon, authenticated;
 notify pgrst, 'reload schema';
+
+-- ===== v5 : date d'inscription des copains =====
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+notify pgrst, 'reload schema';

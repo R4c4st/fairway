@@ -540,6 +540,7 @@
     if (r === 'profile') return viewProfile();
     if (r === 'stats') return viewStats();
     if (r === 'live') return viewLive();
+    if (r === 'copains') return viewCopains();
     return viewHome();
   }
   window.addEventListener('hashchange', route);
@@ -941,6 +942,26 @@
     body.querySelector('#c-share').onclick = () => shareCardImage(g);
   }
 
+  /* --- 👥 Les copains inscrits --- */
+  async function viewCopains() {
+    $app.innerHTML = topbar('👥 Les copains', '#/profile') + '<main id="cpb"><p class="muted">Chargement…</p></main>';
+    updateSyncBadge();
+    const el = document.getElementById('cpb');
+    if (!remoteOn()) { el.innerHTML = '<p class="err">Serveur non configuré.</p>'; return; }
+    let rows = [];
+    try {
+      let r = await sb.from('profiles').select('device_id, name, idx, created_at, updated_at').order('created_at', { ascending: false });
+      if (r.error) r = await sb.from('profiles').select('device_id, name, idx, updated_at').order('updated_at', { ascending: false });
+      rows = (r.data || []).filter(p => p.name);
+    } catch (e) { }
+    const { data: pl } = await sb.from('players').select('device_id').not('device_id', 'is', null);
+    const games = {}; (pl || []).forEach(p => { games[p.device_id] = (games[p.device_id] || 0) + 1; });
+    const dt = d => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' à ' + new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const ago = d => { if (!d) return '—'; const m = Math.round((Date.now() - new Date(d).getTime()) / 60000); return m < 2 ? "à l'instant" : m < 60 ? 'il y a ' + m + ' min' : m < 1440 ? 'il y a ' + Math.round(m / 60) + ' h' : 'il y a ' + Math.round(m / 1440) + ' j'; };
+    el.innerHTML = `<div class="kpis three"><div><b>${rows.length}</b><small>inscrits</small></div><div><b>${Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId).length}</b><small>en ligne</small></div><div><b>${rows.filter(p => p.created_at && Date.now() - new Date(p.created_at).getTime() < 864e5).length}</b><small>nouveaux 24 h</small></div></div>
+      <ul class="cplist">${rows.map(p => `<li><div><b>${led(p.device_id)}${esc(p.name)}${p.device_id === S.me.deviceId ? ' <span class="tag">moi</span>' : ''}</b><small>Index ${p.idx != null ? esc(p.idx) : '—'} · ${games[p.device_id] || 0} partie${(games[p.device_id] || 0) > 1 ? 's' : ''}</small></div><div class="cpd"><small>Inscrit le ${dt(p.created_at)}</small><small>Vu ${ago(p.updated_at)}</small></div></li>`).join('') || '<li class="muted">Personne pour l\'instant.</li>'}</ul>`;
+  }
+
   /* --- 📺 Live : parties en cours des copains --- */
   async function fetchLive() {
     if (!remoteOn()) return [];
@@ -1258,6 +1279,7 @@
       <p class="hint" id="p-bk">${backupLabel()}</p>
       <p class="hint">Tout est sauvegardé tout seul sur le serveur (profil, partenaires, parcours, parties) quelques secondes après chaque changement. Pour tout récupérer sur un autre téléphone : ton code ci-dessous.</p>
       <div class="row2"><button class="btn ghost" id="p-bknow">Sauvegarder maintenant</button><button class="btn ghost" id="p-bkrest">Restaurer</button></div>
+      <a class="btn ghost full" href="#/copains">👥 Les copains inscrits</a>
       <h2>Mon code profil</h2>
       <div class="code small">${esc(S.me.code)}</div>
       <p class="hint">Note-le : si tu changes de téléphone ou réinstalles l'appli, ce code récupère ton profil, tes partenaires et tes parties.</p>
