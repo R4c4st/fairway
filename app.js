@@ -387,8 +387,21 @@
     if (error) throw error;
     if (!data || !data.length) throw new Error('Aucun profil avec ce code.');
     const r = data[0];
-    S.me = { deviceId: r.device_id, code: r.code, name: r.name || '', index: r.idx == null ? '' : String(r.idx), tee: r.tee || 'jaune', bag: r.bag || S.me.bag, partners: r.partners || [] };
-    saveMe(); try { await restoreBackup(S.me.deviceId); } catch (e) { } await pullMyGames();
+    const oldId = S.me.deviceId, keep = { theme: S.me.theme, big: S.me.big, detect: S.me.detect, visible: S.me.visible, follow: S.me.follow, xcap: S.me.xcap };
+    S.me = { ...keep, deviceId: r.device_id, code: r.code, name: r.name || '', index: r.idx == null ? '' : String(r.idx), tee: r.tee || 'jaune', bag: r.bag || S.me.bag, partners: r.partners || [] };
+    saveMe();
+    // l'ancien profil de cet appareil devient un doublon : on le supprime (et on rattache ses parties)
+    if (oldId && oldId !== r.device_id) {
+      try {
+        await sb.from('players').update({ device_id: r.device_id }).eq('device_id', oldId);
+        await sb.from('profiles').delete().eq('device_id', oldId);
+        await sb.from('backups').delete().eq('device_id', oldId);
+      } catch (e) { }
+      Object.values(S.games).forEach(g => g.players.forEach(p => { if (p.device_id === oldId) p.device_id = r.device_id; }));
+      LS.set('fw_games', S.games);
+    }
+    try { await restoreBackup(S.me.deviceId); } catch (e) { } await pullMyGames();
+    if (presCh) { sb.removeChannel(presCh); presCh = null; presReady = false; startPresence(); }
   }
   function rememberPartners(g) {
     if (!g || !myPlayer(g)) return;
@@ -1505,8 +1518,10 @@
       <button class="btn big full" id="w-go">C'est parti</button>
       <button class="btn ghost full" id="w-restore">J'ai déjà un profil</button></div>
       ${!remoteOn() ? '<p class="hint">Serveur non configuré : profil gardé sur ce téléphone seulement.</p>' : ''}</main>`;
-    $app.querySelector('#w-go').onclick = () => {
+    $app.querySelector('#w-go').onclick = async () => {
       const n = $app.querySelector('#w-name').value.trim(); if (!n) return alert('Ton prénom ?');
+      // même prénom déjà inscrit ? c'est peut-être toi sur un autre appareil
+      if (remoteOn()) { try { const { data } = await sb.from('profiles').select('device_id').ilike('name', n).neq('device_id', S.me.deviceId).limit(1); if (data && data.length && confirm('Un copain « ' + n + ' » est déjà inscrit.\nC\'est toi sur un autre appareil (téléphone, PC…) ?\n\nOK = saisir mon code profil · Annuler = c\'est quelqu\'un d\'autre')) { $app.querySelector('#w-restore').click(); return; } } catch (e) { } }
       S.me.name = n; S.me.index = $app.querySelector('#w-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#w-tee').value;
       syncProfile(); route();
     };
