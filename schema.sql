@@ -144,3 +144,7 @@ notify pgrst, 'reload schema';
 -- ===== v5 : date d'inscription des copains =====
 alter table public.profiles add column if not exists created_at timestamptz not null default now();
 notify pgrst, 'reload schema';
+
+-- ===== v6 : équipes (scramble / combo) =====
+alter table public.games add column if not exists teams jsonb;
+notify pgrst, 'reload schema';

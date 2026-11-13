@@ -66,7 +66,7 @@
   // scores: { [hole]: {strokes, putts, pickup} }
   function playerSummary(player, game, course, scores) {
     const tee = (course.tees || []).find(t => t.id === (player.tee || game.tee)) || (course.tees || [])[0];
-    const ph = playingHandicap(idxOf(player), tee, course, game.mode);
+    const ph = player.fixedPh != null ? player.fixedPh : playingHandicap(idxOf(player), tee, course, game.mode);
     const recv = strokesPerHole(ph, course, game.mode);
     const holes = holesFor(game.mode, course.holes.length);
     let gross = 0, net = 0, pts = 0, parPlayed = 0, played = 0, putts = 0, puttsN = 0;
@@ -243,7 +243,15 @@
     return '[out:json][timeout:25];(way["golf"="hole"]' + a + ';way["golf"="green"]' + a + ';node["golf"="pin"]' + a + ';);out geom;';
   }
 
-  const api = { payers, flagsFromOSM, overpassQuery, holesFor, playingHandicap, strokesPerHole, stablefordPoints, adjustedGross, playerSummary, matchPlay, leaderboard, distance, suggestClub, scoreName };
+  // Handicap d'équipe scramble (recommandations WHS) : à 2 → 35 % / 15 %, à 4 → 25/20/15/10 %
+  function teamHandicap(members, game, course) {
+    const tee = id => (course.tees || []).find(t => t.id === id) || (course.tees || [])[0];
+    const phs = members.map(p => playingHandicap(idxOf(p), tee(p.tee || game.tee), course, game.mode)).sort((a, b) => a - b);
+    const w = phs.length >= 4 ? [0.25, 0.20, 0.15, 0.10] : phs.length === 3 ? [0.30, 0.20, 0.10] : phs.length === 2 ? [0.35, 0.15] : [1];
+    return Math.round(phs.reduce((s, ph, i) => s + ph * (w[i] || 0), 0));
+  }
+
+  const api = { teamHandicap, payers, flagsFromOSM, overpassQuery, holesFor, playingHandicap, strokesPerHole, stablefordPoints, adjustedGross, playerSummary, matchPlay, leaderboard, distance, suggestClub, scoreName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GolfCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

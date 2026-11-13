@@ -13,7 +13,7 @@
   const fmtPar = n => n === 0 ? 'E' : (n > 0 ? '+' + n : String(n));
   const today = () => new Date().toISOString().slice(0, 10);
   const frDate = d => { if (!d) return ''; const [y, m, j] = d.split('-'); return j + '/' + m + '/' + y; };
-  const FORMATS = { stableford: 'Stableford', net: 'Stroke play net', brut: 'Stroke play brut', match: 'Match play' };
+  const FORMATS = { stableford: 'Stableford', net: 'Stroke play net', brut: 'Stroke play brut', match: 'Match play', scramble: 'Scramble', combo: 'Scramble 9 + Match play 9' };
   const MODES = { '18': '18 trous', front: 'Aller (1-9)', back: 'Retour (10-18)' };
   const SHOTS = [['birdie', '🐦', 'Birdie'], ['eagle', '🦅', 'Eagle'], ['hio', '💥', 'Trou en 1'], ['drive', '🚀', 'Gros drive'], ['approche', '🎯', 'Belle approche'], ['putt', '⛳', 'Putt de fou'], ['chip', '🪄', 'Chip-in'], ['bunker', '🏖️', 'Sortie de bunker'], ['sauvetage', '🦸', 'Sauvetage'], ['par', '💪', 'Par arraché'], ['autre', '👏', 'Autre…']];
   const shotOf = t => SHOTS.find(s => s[0] === t) || ['autre', '👏', 'Beau coup'];
@@ -318,8 +318,9 @@
   function rememberPartners(g) {
     if (!g || !myPlayer(g)) return;
     let changed = false;
+    const tp = teamPidSet(g);
     g.players.forEach(p => {
-      if (p.device_id === S.me.deviceId) return;
+      if (p.device_id === S.me.deviceId || tp.has(p.id)) return;
       const k = p.device_id ? 'd:' + p.device_id : 'n:' + p.name.toLowerCase();
       let m = S.me.partners.find(x => x.key === k || (p.device_id && !x.device_id && x.name.toLowerCase() === p.name.toLowerCase()));
       if (!m) { m = { key: k, device_id: p.device_id || null, name: p.name, idx: p.idx, games: [] }; S.me.partners.push(m); changed = true; }
@@ -372,7 +373,7 @@
     const el = document.createElement('div'); el.className = 'modal';
     const draw = () => {
       el.innerHTML = `<div class="sheet"><h2>👏 Signaler un beau coup</h2>
-        <div class="pick">${g.players.map(p => `<button data-p="${p.id}" class="${p.id === st.pid ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
+        <div class="pick">${indivPlayers(g).map(p => `<button data-p="${p.id}" class="${p.id === st.pid ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
         <div class="pick shots">${SHOTS.map(s => `<button data-t="${s[0]}" class="${s[0] === st.type ? 'on' : ''}"><span>${s[1]}</span>${s[2]}</button>`).join('')}</div>
         <button class="btn big full" id="sh-go" ${st.pid && st.type ? '' : 'disabled'}>Envoyer à tout le monde</button>
         <button class="btn ghost full" id="sh-x">Annuler</button></div>`;
@@ -393,10 +394,10 @@
   function celebrate(gid) {
     const g = S.games[gid]; if (!g) return;
     const course = gameCourse(g);
-    const pay = C.payers(g.players, g.game, course, scoresOf(g), g.events);
+    const pay = gamePayers(g);
     const names = pay.last.map(x => x.name);
     const title = names.length ? 'Merci ' + names.join(' et ') + ' !' : 'Égalité parfaite !';
-    const sub = names.length ? (names.length > 1 ? 'Derniers ex aequo : tournée partagée 🍻' : 'Dernier de la partie : c\'est ta tournée 🍻') : 'Personne ne paie… cette fois.';
+    const sub = names.length ? (pay.teamName ? (g.game.format === 'combo' ? pay.teamName + ' a perdu le duel : tournée d\'équipe 🍻' : pay.teamName + ', équipe dernière : tournée d\'équipe 🍻') : (names.length > 1 ? 'Derniers ex aequo : tournée partagée 🍻' : 'Dernier de la partie : c\'est ta tournée 🍻')) : 'Personne ne paie… cette fois.';
     const extra = pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges au ${r.holes.join(', ')} → ${r.holes.length} tournée${r.holes.length > 1 ? 's' : ''}</li>`).join('');
     const bubbles = Array.from({ length: 14 }, () => `<circle cx="${45 + Math.random() * 70}" cy="200" r="${2 + Math.random() * 3}" style="animation-delay:${1 + Math.random() * 2.5}s;animation-duration:${1.6 + Math.random() * 1.6}s"/>`).join('');
     const el = document.createElement('div'); el.className = 'beer';
@@ -428,7 +429,7 @@
         const q = encodeURIComponent((/golf/i.test(course.name) ? '' : 'golf ') + course.name + ' ' + (course.city || ''));
         const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + q).then(x => x.json()).catch(() => []);
         center = r && r[0] ? { lat: +r[0].lat, lng: +r[0].lon } : S.pos;
-        if (!center) { if (!silent) alert('Golf introuvable par son nom : lance la recherche depuis le parcours, GPS activé.'); return 0; }
+        if (!center) { if (!silent || silent === 'auto') toast('Golf introuvable : place les greens à la main'); if (false) alert('Golf introuvable par son nom : lance la recherche depuis le parcours, GPS activé.'); return 0; }
         const cc = JSON.parse(JSON.stringify(getCourse(courseId))); cc.center = { lat: +center.lat.toFixed(6), lng: +center.lng.toFixed(6) }; saveCourse(cc);
       }
       const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(C.overpassQuery(center, 2500)), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
@@ -441,7 +442,7 @@
       if (!silent || n) toast(n ? `🛰️ ${n}/${course.holes.length} trous placés automatiquement` : 'Ce golf n\'est pas cartographié sur OpenStreetMap : place les greens à la main.');
       renderGameBody();
       return n;
-    } catch (e) { if (!silent) alert('Recherche impossible (connexion ?)'); return 0; }
+    } catch (e) { if (silent === 'auto') toast('Drapeaux : recherche impossible pour l\'instant'); else if (!silent) alert('Recherche impossible (connexion ?)'); return 0; }
   }
 
   async function pullCourses() {
@@ -475,6 +476,13 @@
     const snap = JSON.parse(JSON.stringify(course)); delete snap._updated;
     const game = { id: uid(), code: code6(), course_id: course.id, course: snap, tee: opts.tee, mode: opts.mode, format: opts.format, play_date: opts.date || today(), tee_time: opts.time || null, status: 'open', created_by: S.me.name, created_at: new Date().toISOString() };
     const players = opts.players.map((p, i) => ({ id: uid(), game_id: game.id, device_id: i === 0 ? S.me.deviceId : (p.device_id || null), name: p.name, idx: p.idx === '' ? null : Number(p.idx), tee: p.tee || opts.tee, created_at: new Date(Date.now() + i).toISOString() }));
+    if (opts.teams && opts.teams.length) {
+      game.teams = opts.teams.map((t, k) => {
+        const pid = uid();
+        players.push({ id: pid, game_id: game.id, device_id: null, name: t.name, idx: null, tee: opts.tee, created_at: new Date(Date.now() + 50 + k).toISOString() });
+        return { id: 't' + k, name: t.name, color: t.color, pid, members: t.members.map(i => players[i].id) };
+      });
+    }
     S.games[game.id] = { game, players, scores: {}, events: [], mine: true }; saveGames();
     push({ t: 'upsert', table: 'games', row: game });
     players.forEach(p => push({ t: 'upsert', table: 'players', row: p }));
@@ -565,16 +573,17 @@
     const open = Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done').sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
     const done = Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
     const card = g => {
-      const p = myPlayer(g) || g.players[0];
-      const s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null;
-      const sc = s && s.played ? (g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')') : '—';
-      return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
+      let s = null, sc = '—';
+      if (g.game.format === 'combo') { const r = comboResult(g); const mt = myTeam(g); if (r) { const i = mt ? r.tps.findIndex(t => t.id === mt.id) : 0; sc = fmtPts(r.pts[Math.max(i, 0)]) + ' – ' + fmtPts(r.pts[i === 1 ? 0 : 1]); } }
+      else if (g.game.format === 'scramble') { const t = myTeam(g) || teamPlayers(g)[0]; if (t) { s = C.playerSummary(t, phaseGame(g, 'scr'), gameCourse(g), scoresOf(g)[t.id] || {}); if (s.played) sc = 'net ' + fmtPar(s.netToPar); } }
+      else { const p = myPlayer(g) || g.players[0]; s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null; if (s && s.played) sc = g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')'; }
+      return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
     };
     const potesCard = g => {
-      const rows = C.leaderboard(g.players, g.game, gameCourse(g), scoresOf(g));
-      const lead = rows[0];
-      const holesDone = Math.max(0, ...rows.map(r => r.played));
-      return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${esc(g.players.map(x => x.name).join(', '))}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead && lead.played ? 'En tête : ' + esc(lead.name) + (g.game.format === 'stableford' ? ' (' + lead.points + ' pts)' : ' (' + fmtPar(g.game.format === 'brut' ? lead.toPar : lead.netToPar) + ')') : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
+      const sl = standingsLite(g);
+      const lead = sl[0] && sl[0].played ? { name: sl[0].name, label: sl[0].label } : null;
+      const holesDone = Math.max(0, ...g.players.map(p => Object.keys(scoresOf(g)[p.id] || {}).length).concat(teamPlayers(g).map(t => 0)));
+      return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${esc(indivPlayers(g).map(x => x.name).join(', '))}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead ? 'En tête : ' + esc(lead.name) + ' (' + esc(lead.label) + ')' : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
     };
     $app.innerHTML = topbar('Fairway') + `<main>
       <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
@@ -596,15 +605,34 @@
   /* --- Nouvelle partie --- */
   function viewNew() {
     const courses = Object.values(allCourses());
-    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'stableford', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }] };
+    const st = { courseId: courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'stableford', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [] };
+    const teamFmt = () => st.format === 'scramble' || st.format === 'combo';
+    const nTeams = () => st.format === 'combo' ? 2 : Math.max(2, Math.ceil(st.players.length / st.teamSize));
+    const fixTeams = () => { st.assign = st.players.map((_, i) => st.assign[i] != null && st.assign[i] < nTeams() ? st.assign[i] : -1); for (let k = 0; k < nTeams(); k++) if (!st.tnames[k]) st.tnames[k] = TEAM_NAMES[(k + Math.floor(Math.random() * TEAM_NAMES.length)) % TEAM_NAMES.length]; if (new Set(st.tnames.slice(0, nTeams())).size < nTeams()) st.tnames = st.tnames.map((n, k) => TEAM_NAMES[k % TEAM_NAMES.length]); };
+    const draw_ = (balanced) => {
+      const n = st.players.length, T = nTeams();
+      let order = st.players.map((_, i) => i);
+      if (balanced) order.sort((a, b) => (Number(st.players[a].idx) || 54) - (Number(st.players[b].idx) || 54));
+      else for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      const res = []; order.forEach((pi, k) => { const round = Math.floor(k / T), pos = k % T; res[pi] = balanced && round % 2 ? T - 1 - pos : pos; });
+      return res;
+    };
     const partners = S.me.partners.slice().sort((a, b) => (b.games || []).length - (a.games || []).length).slice(0, 16);
     const draw = () => {
       const c = getCourse(st.courseId);
       if (c && !c.tees.find(t => t.id === st.tee)) st.tee = c.tees[0].id;
+      if (st.format === 'combo') st.mode = '18';
+      if (teamFmt()) fixTeams();
+      const teamsHtml = !teamFmt() ? '' : `<h2>Équipes</h2>
+        ${st.format === 'combo' ? '<p class="hint">Combo : 2 équipes. Trous 1-9 en scramble, trous 10-18 en match play 1 contre 1 (le meilleur index contre le meilleur index, etc.). 1 point le scramble, 1 point par match, l\'équipe qui perd paie la tournée 🍻</p>' : '<p class="hint">Scramble : chacun joue, on garde la meilleure balle, un seul score par équipe. Handicap d\'équipe WHS (à 2 : 35 % / 15 %, à 4 : 25/20/15/10 %).</p>'}
+        <div class="seg"><button data-ts="2" class="${st.teamSize === 2 ? 'on' : ''}">Équipes de 2</button><button data-ts="4" class="${st.teamSize === 4 ? 'on' : ''}">Équipes de 4</button></div>
+        <div class="row2"><button class="btn ghost" id="t-rand">🎲 Tirage au sort</button><button class="btn ghost" id="t-bal">⚖️ Équilibrer</button></div>
+        <div id="teams">${Array.from({ length: nTeams() }, (_, k) => `<div class="teamcard" style="border-color:${TEAM_COLORS[k % TEAM_COLORS.length]}"><div class="tchead">${teamDot(TEAM_COLORS[k % TEAM_COLORS.length])}<input data-tn="${k}" value="${esc(st.tnames[k])}"><span class="tcount">${st.assign.filter(a => a === k).length}/${st.teamSize}</span></div><div class="tmem">${st.players.map((p, i) => st.assign[i] === k ? `<span class="tchip">${esc(p.name || '?')}</span>` : '').join('') || '<small>Personne</small>'}</div></div>`).join('')}</div>
+        <div class="assign">${st.players.map((p, i) => `<div class="arow"><span>${esc(p.name || 'Joueur ' + (i + 1))}</span><div class="pick mini">${Array.from({ length: nTeams() }, (_, k) => `<button data-as="${i}:${k}" class="${st.assign[i] === k ? 'on' : ''}" style="${st.assign[i] === k ? 'background:' + TEAM_COLORS[k % TEAM_COLORS.length] + ';border-color:' + TEAM_COLORS[k % TEAM_COLORS.length] : ''}">${String.fromCharCode(65 + k)}</button>`).join('')}</div></div>`).join('')}</div>`;
       $app.innerHTML = topbar('Nouvelle partie', '#/') + `<main class="form">
         <label>Parcours<select id="n-course">${courses.map(x => `<option value="${esc(x.id)}" ${x.id === st.courseId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
         <div class="row2"><label>Repère<select id="n-tee">${c.tees.map(t => `<option value="${esc(t.id)}" ${t.id === st.tee ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
-        <label>Trous<select id="n-mode">${Object.entries(MODES).filter(([k]) => c.holes.length >= 18 || k !== 'back').map(([k, v]) => `<option value="${k}" ${k === st.mode ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
+        <label>Trous<select id="n-mode" ${st.format === 'combo' ? 'disabled' : ''}>${Object.entries(MODES).filter(([k]) => c.holes.length >= 18 || k !== 'back').map(([k, v]) => `<option value="${k}" ${k === st.mode ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
         <label>Formule<select id="n-format">${Object.entries(FORMATS).map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
         <div class="row2"><label>Date<input type="date" id="n-date" value="${st.date}"></label><label>Départ<input type="time" id="n-time" value="${st.time}"></label></div>
         <h2>Joueurs</h2>
@@ -613,6 +641,7 @@
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint">Tes potes peuvent aussi se rajouter eux-mêmes avec le lien d'invitation, une fois la partie créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
+        ${teamsHtml}
         <button class="btn big" id="n-go">Créer la partie</button>
       </main>`;
       updateSyncBadge();
@@ -628,10 +657,27 @@
         draw();
       });
       $app.querySelector('#n-add').onclick = () => { if (st.players.length >= 8) return; st.players.push({ name: '', idx: '' }); draw(); };
+      if (teamFmt()) {
+        $app.querySelectorAll('[data-ts]').forEach(b => b.onclick = () => { st.teamSize = +b.dataset.ts; st.assign = []; draw(); });
+        $app.querySelectorAll('[data-tn]').forEach(inp => inp.oninput = e => { st.tnames[+e.target.dataset.tn] = e.target.value; });
+        $app.querySelectorAll('[data-as]').forEach(b => b.onclick = () => { const [i, k] = b.dataset.as.split(':').map(Number); st.assign[i] = st.assign[i] === k ? -1 : k; draw(); });
+        const anim = balanced => { let n = 0; const iv = setInterval(() => { st.assign = draw_(false); draw(); vibrate(8); if (++n >= 9) { clearInterval(iv); st.assign = draw_(balanced); draw(); vibrate([30, 40, 60]); } }, 90); };
+        $app.querySelector('#t-rand').onclick = () => anim(false);
+        $app.querySelector('#t-bal').onclick = () => anim(true);
+      }
       $app.querySelector('#n-go').onclick = () => {
         const players = st.players.filter(p => String(p.name).trim()).map(p => ({ name: String(p.name).trim(), idx: String(p.idx == null ? '' : p.idx).replace(',', '.'), device_id: p.device_id || null }));
         if (!players.length) return alert('Ajoute au moins un joueur.');
-        const id = createGame({ ...st, players });
+        let teams = null;
+        if (teamFmt()) {
+          const keep = st.players.map((p, i) => String(p.name).trim() ? i : -1).filter(i => i >= 0);
+          const asg = keep.map(i => st.assign[i]);
+          if (asg.some(a => a == null || a < 0)) return alert('Place chaque joueur dans une équipe (ou fais un tirage au sort 🎲).');
+          teams = Array.from({ length: nTeams() }, (_, k) => ({ name: (st.tnames[k] || TEAM_NAMES[k]).trim() || TEAM_NAMES[k], color: TEAM_COLORS[k % TEAM_COLORS.length], members: asg.map((a, j) => a === k ? j : -1).filter(j => j >= 0) })).filter(t => t.members.length);
+          if (teams.some(t => t.members.length !== st.teamSize)) return alert('Chaque équipe doit avoir ' + st.teamSize + ' joueurs.');
+          if (st.format === 'combo' && teams.length !== 2) return alert('Le combo se joue à 2 équipes.');
+        }
+        const id = createGame({ ...st, players, teams });
         location.hash = '#/game/' + id;
       };
     };
@@ -648,7 +694,7 @@
     try { g = await fetchGameRemote({ code }); }
     catch (e) { $app.querySelector('main').innerHTML = `<p class="err">${esc(e.message)}</p>${!remoteOn() ? '<a class="btn" href="#/profile">Configurer le serveur</a>' : ''}`; return; }
     S.games[g.game.id] = { ...g, mine: false }; saveGames();
-    const free = g.players.filter(p => !p.device_id);
+    const free = indivPlayers(g).filter(p => !p.device_id);
     $app.querySelector('main').innerHTML = `
       <section class="card"><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' à ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]} · repère ${esc(teeName(g.game.course, g.game.tee))}</small><small>Joueurs : ${g.players.map(p => esc(p.name)).join(', ') || '—'}</small></section>
       ${free.length ? `<h2>C'est toi ?</h2>${free.map(p => `<button class="btn ghost full" data-claim="${p.id}">Je suis ${esc(p.name)}</button>`).join('')}<h2>Ou</h2>` : ''}
@@ -696,7 +742,8 @@
     subscribe(gid);
     if (!spect) rememberPartners(g);
     const lc = spect ? null : getCourse(g.game.course_id);
-    if (lc && !lc._osm && !lc.holes.some(h => h.gps && h.gps.center) && navigator.onLine) autoFlags(lc.id, false);
+    S.flagTried = S.flagTried || new Set();
+    if (lc && !lc._osm && !S.flagTried.has(lc.id) && !lc.holes.some(h => h.gps && h.gps.center) && navigator.onLine) { S.flagTried.add(lc.id); autoFlags(lc.id, 'auto'); }
     if (remoteOn()) refreshGame(gid).then(ok => ok && liveRender());
     renderGameBody();
   }
@@ -713,9 +760,12 @@
 
   function holeChips(g, cur) {
     const holes = C.holesFor(g.game.mode, g.game.course.holes.length);
-    const me = myPlayer(g) || g.players[0];
+    const me = myPlayer(g) || indivPlayers(g)[0];
     const sc = me ? (scoresOf(g)[me.id] || {}) : {};
-    return `<div class="chips" id="chips">${holes.map(h => `<button data-h="${h}" class="${h === cur ? 'on' : ''} ${sc[h] ? 'done' : ''}">${h}</button>`).join('')}</div>`;
+    const mt = isTeamGame(g) ? (myTeam(g) || teamPlayers(g)[0]) : null;
+    const tsc = mt ? (scoresOf(g)[mt.id] || {}) : {};
+    const done = h => (isTeamGame(g) && isScrHole(g, h)) ? tsc[h] : sc[h];
+    return `<div class="chips" id="chips">${holes.map(h => `<button data-h="${h}" class="${h === cur ? 'on' : ''} ${done(h) ? 'done' : ''} ${g.game.format === 'combo' && h === 10 ? 'phase' : ''}">${h}</button>`).join('')}</div>`;
   }
 
   function renderHole(body, g) {
@@ -724,22 +774,31 @@
     const ch = course.holes[h - 1];
     const holes = C.holesFor(g.game.mode, course.holes.length);
     const dist = ch.dist ? ch.dist[g.game.tee] : null;
-    const players = g.players.slice().sort((a, b) => (b.device_id === S.me.deviceId) - (a.device_id === S.me.deviceId));
+    const teamHole = isTeamGame(g) && isScrHole(g, h);
+    const gmH = !isTeamGame(g) ? g.game : phaseGame(g, teamHole ? 'scr' : 'mp');
+    const mt = teamHole ? myTeam(g) : null;
+    const players = teamHole ? teamPlayers(g).sort((a, b) => (mt && b.id === mt.id) - (mt && a.id === mt.id)) : indivPlayers(g).sort((a, b) => (b.device_id === S.me.deviceId) - (a.device_id === S.me.deviceId));
     const stars = ch.difficulty ? '★'.repeat(ch.difficulty) + '☆'.repeat(5 - ch.difficulty) : '';
+    let phaseInfo = '';
+    if (g.game.format === 'combo') {
+      const r = comboResult(g);
+      phaseInfo = teamHole ? `<div class="phasebar">🤝 <b>Scramble</b> (trous 1-9) · ${r ? esc(r.scrLabel) : ''}</div>` : `<div class="phasebar">⚔️ <b>Match play</b> (trous 10-18)${r ? r.matches.map(x => `<small>${esc(x.a.name)} vs ${esc(x.b.name)} : ${esc(x.m.label)}</small>`).join('') : ''}</div>`;
+    } else if (g.game.format === 'scramble') phaseInfo = '<div class="phasebar">🤝 <b>Scramble</b> · un score par équipe</div>';
     const sumRows = players.map(p => {
-      const s = C.playerSummary(p, g.game, course, scoresOf(g)[p.id] || {});
+      const s = C.playerSummary(p, gmH, course, scoresOf(g)[p.id] || {});
       const cur = (scoresOf(g)[p.id] || {})[h] || {};
       const recv = s.recv[h] || 0;
       const shown = cur.pickup ? 'X' : (cur.strokes != null ? cur.strokes : '–');
       const ph = s.perHole[h];
       const cls = cur.pickup ? 'pick' : (cur.strokes != null ? scoreCls(cur.strokes - ch.par) : '');
       return `<div class="player" data-pid="${p.id}">
-        <div class="pname"><b>${esc(p.name)}${p.device_id === S.me.deviceId ? ' <span class="tag">moi</span>' : ''}</b><small>HCP jeu ${s.ph} · ${recv > 0 ? '●'.repeat(recv) + ' reçoit ' + recv : (recv < 0 ? 'rend ' + (-recv) : 'pas de coup')} · ${g.game.format === 'stableford' ? s.points + ' pts' : 'net ' + fmtPar(s.netToPar)}</small></div>
+        <div class="pname"><b>${p.members ? teamDot(p.color) : ''}${esc(p.name)}${p.device_id === S.me.deviceId || (mt && p.id === mt.id) ? ' <span class="tag">moi</span>' : ''}</b>${p.members ? `<small class="mem">${p.members.map(m => esc(m.name)).join(' · ')}</small>` : ''}<small>HCP ${p.members ? 'équipe' : 'jeu'} ${s.ph} · ${recv > 0 ? '●'.repeat(recv) + ' reçoit ' + recv : (recv < 0 ? 'rend ' + (-recv) : 'pas de coup')} · ${g.game.format === 'stableford' ? s.points + ' pts' : 'net ' + fmtPar(s.netToPar)}</small></div>
         <div class="stepper"><button data-s="-1">−</button><span class="val ${cls}">${shown}</span><button data-s="1">＋</button></div>
         <div class="sub"><span>Putts</span><button data-pt="-1">−</button><span class="pv">${cur.putts != null ? cur.putts : '–'}</span><button data-pt="1">＋</button>
           <button class="pickbtn ${cur.pickup ? 'on' : ''}" data-pick="1" title="Balle ramassée">X</button>
-          ${(p.tee || g.game.tee) !== 'rouge' ? `<button class="pickbtn rougebtn ${rougeEv(g, p.id, h) ? 'on' : ''}" data-rouge="1" title="Pas passé les rouges">🍺 Rouges</button>` : ''}
+          ${p.members ? '' : ((p.tee || g.game.tee) !== 'rouge' ? `<button class="pickbtn rougebtn ${rougeEv(g, p.id, h) ? 'on' : ''}" data-rouge="1" title="Pas passé les rouges">🍺 Rouges</button>` : '')}
           <span class="res">${ph && ph.gross != null ? C.scoreName(cur.strokes, ch.par, cur.pickup) + (g.game.format === 'stableford' ? ' · ' + ph.points + ' pt' + (ph.points > 1 ? 's' : '') : '') : ''}</span></div>
+        ${p.members && g.game.tee !== 'rouge' ? `<div class="sub rmem"><span>🍺 Rouges :</span>${p.members.map(m => `<button class="pickbtn rougebtn ${rougeEv(g, m.id, h) ? 'on' : ''}" data-rpid="${m.id}">${esc(m.name.split(' ')[0])}</button>`).join('')}</div>` : ''}
       </div>`;
     }).join('');
     const idx = holes.indexOf(h);
@@ -747,8 +806,9 @@
       <section class="holehead"><div class="hn">${h}</div><div><b>Par ${ch.par}</b> · HCP ${ch.si}${dist ? ' · ' + dist + ' m' : ''}<small>${stars ? `<span class="stars">${stars}</span> ` : ''}${ch.note ? esc(ch.note) : '<i class="muted">Pas de note sur ce trou</i>'}</small></div><button class="icon" id="h-note" aria-label="Modifier la note">✏️</button></section>
       <section class="gps" id="gps"></section>
       <button class="btn shotbtn full" id="h-shot">👏 Signaler un beau coup</button>
+      ${phaseInfo}
       <section class="players">${sumRows}</section>
-      ${g.players.length < 8 ? '<button class="btn ghost full" id="h-addp">＋ Ajouter un joueur</button>' : ''}
+      ${!isTeamGame(g) && g.players.length < 8 ? '<button class="btn ghost full" id="h-addp">＋ Ajouter un joueur</button>' : ''}
       <div class="holenav"><button class="btn ghost" id="h-prev" ${idx <= 0 ? 'disabled' : ''}>‹ Trou ${holes[idx - 1] || ''}</button>${idx < holes.length - 1 ? `<button class="btn" id="h-next">Trou ${holes[idx + 1]} ›</button>` : (g.game.status !== 'done' ? '<button class="btn" id="h-end">Terminer la partie</button>' : '<button class="btn ghost" id="h-reopen">Rouvrir la partie</button>')}</div>`;
     updateGPSView();
     const chips = body.querySelector('#chips'); const on = chips.querySelector('.on'); if (on) chips.scrollLeft = on.offsetLeft - chips.clientWidth / 2 + 20;
@@ -767,6 +827,7 @@
         const c = cur(); let v = c.putts != null ? c.putts + (+b.dataset.pt) : (+b.dataset.pt > 0 ? 2 : 0);
         setScore(g.game.id, pid, h, { putts: v < 0 ? null : Math.min(v, 10) }); renderGameBody();
       });
+      row.querySelectorAll('[data-rpid]').forEach(b => b.onclick = () => { const mpid = b.dataset.rpid; const ev = rougeEv(g, mpid, h); if (ev) removeEvent(g.game.id, ev.id); else addEvent(g.game.id, { player_id: mpid, type: 'rouge', hole: h }); renderGameBody(); });
       const rb = row.querySelector('[data-rouge]');
       if (rb) rb.onclick = () => { const ev = rougeEv(g, pid, h); if (ev) removeEvent(g.game.id, ev.id); else addEvent(g.game.id, { player_id: pid, type: 'rouge', hole: h }); renderGameBody(); };
       row.querySelector('[data-pick]').onclick = () => { const c = cur(); setScore(g.game.id, pid, h, { pickup: !c.pickup, strokes: c.pickup ? c.strokes : null }); renderGameBody(); };
@@ -780,6 +841,79 @@
     const e = body.querySelector('#h-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); S.tab = 'classement'; viewGame(g.game.id); celebrate(g.game.id); } };
     const r = body.querySelector('#h-reopen'); if (r) r.onclick = () => { updateGame(g.game.id, { status: 'open' }); renderGameBody(); };
   }
+  /* ---------- Équipes (scramble / combo) ---------- */
+  const TEAM_NAMES = ['Les Birdies', 'Team Bogey', 'Les Chopes', 'Les Gratteurs', 'Les Hors-Limites', 'Les Pintes', 'Les Slicers', 'Team Mousse', 'Les Fers à Repasser', 'Les Bunkers'];
+  const TEAM_COLORS = ['#e8272b', '#2f6fd6', '#f2a900', '#22a052', '#8b5cf6', '#ff7ab6'];
+  const isTeamGame = g => g && (g.game.format === 'scramble' || g.game.format === 'combo');
+  const teamPidSet = g => new Set((g.game.teams || []).map(t => t.pid));
+  const indivPlayers = g => { const t = teamPidSet(g); return g.players.filter(p => !t.has(p.id)); };
+  const isScrHole = (g, h) => g.game.format === 'scramble' || (g.game.format === 'combo' && h <= 9);
+  function phaseGame(g, phase) {
+    if (g.game.format === 'combo') return { ...g.game, mode: phase === 'scr' ? 'front' : 'back', format: phase === 'scr' ? 'net' : 'match' };
+    return { ...g.game, format: 'net' };
+  }
+  function teamPlayers(g) {
+    const course = gameCourse(g), pg = phaseGame(g, 'scr');
+    return (g.game.teams || []).map(t => {
+      const mem = t.members.map(id => g.players.find(p => p.id === id)).filter(Boolean);
+      return { id: t.pid, name: t.name, color: t.color, members: mem, tee: g.game.tee, fixedPh: C.teamHandicap(mem, pg, course) };
+    });
+  }
+  const myTeam = g => { const me = myPlayer(g); return me ? teamPlayers(g).find(t => t.members.some(m => m.id === me.id)) : null; };
+  const teamDot = c => `<i class="tdot" style="background:${c}"></i>`;
+  function comboResult(g) {
+    const course = gameCourse(g), tps = teamPlayers(g); if (tps.length !== 2) return null;
+    const pgS = phaseGame(g, 'scr'), pgM = phaseGame(g, 'mp');
+    const scr = tps.map(t => C.playerSummary(t, pgS, course, scoresOf(g)[t.id] || {}));
+    const pts = [0, 0]; const scrDone = scr.every(x => x.finished);
+    let scrLabel = 'Pas commencé';
+    const n = Math.min(scr[0].played, scr[1].played);
+    if (n > 0) {
+      const hs = C.holesFor('front', course.holes.length).slice(0, n);
+      const netAt = x => hs.reduce((a, h) => a + (x.perHole[h].gross - x.perHole[h].recv), 0);
+      const d = netAt(scr[0]) - netAt(scr[1]);
+      scrLabel = d === 0 ? (scrDone ? 'Égalité' : 'Égalité après ' + n) : (d < 0 ? tps[0].name : tps[1].name) + (scrDone ? ' gagne de ' : ' mène de ') + Math.abs(d) + (scrDone ? '' : ' après ' + n);
+      if (scrDone) { if (d < 0) pts[0] += 1; else if (d > 0) pts[1] += 1; else { pts[0] += .5; pts[1] += .5; } }
+    }
+    const sortM = t => t.members.slice().sort((a, b) => (Number(a.idx) || 0) - (Number(b.idx) || 0));
+    const A = sortM(tps[0]), B = sortM(tps[1]); const matches = [];
+    for (let i = 0; i < Math.min(A.length, B.length); i++) {
+      const m = C.matchPlay(A[i], B[i], pgM, course, scoresOf(g)[A[i].id] || {}, scoresOf(g)[B[i].id] || {});
+      const done = m.played > 0 && (m.left === 0 || Math.abs(m.up) > m.left);
+      if (done) { if (m.up > 0) pts[0] += 1; else if (m.up < 0) pts[1] += 1; else { pts[0] += .5; pts[1] += .5; } }
+      matches.push({ a: A[i], b: B[i], m, done });
+    }
+    return { tps, scr, scrDone, scrLabel, matches, pts };
+  }
+  const fmtPts = n => String(n).replace('.5', '½').replace(/^0½$/, '½');
+  function gamePayers(g) {
+    const course = gameCourse(g);
+    if (!isTeamGame(g)) return C.payers(g.players, g.game, course, scoresOf(g), g.events);
+    const base = C.payers(indivPlayers(g), { ...g.game, format: 'net' }, course, {}, g.events);
+    let lt = [];
+    if (g.game.format === 'combo') { const r = comboResult(g); if (r && r.pts[0] !== r.pts[1]) lt = [r.pts[0] < r.pts[1] ? r.tps[0] : r.tps[1]]; }
+    else {
+      const tps = teamPlayers(g);
+      const rows = C.leaderboard(tps, phaseGame(g, 'scr'), course, scoresOf(g)).filter(r => r.played);
+      if (rows.length >= 2) { const worst = Math.max(...rows.map(r => r.netToPar)); const lasts = rows.filter(r => r.netToPar === worst); if (lasts.length < rows.length) lt = lasts.map(r => tps.find(t => t.id === r.playerId)); }
+    }
+    return { last: lt.flatMap(t => t.members.map(p => ({ playerId: p.id, name: p.name }))), rouges: base.rouges, teamName: lt.map(t => t.name).join(' et ') };
+  }
+  // classement résumé (cartes Live / Mes potes / partage)
+  function standingsLite(g) {
+    const course = gameCourse(g);
+    if (g.game.format === 'combo') { const r = comboResult(g); if (r) return r.tps.map((t, i) => ({ name: t.name, label: fmtPts(r.pts[i]) + ' pt' + (r.pts[i] > 1 ? 's' : ''), played: 1, v: -r.pts[i] })).sort((a, b) => a.v - b.v); }
+    if (g.game.format === 'scramble') return C.leaderboard(teamPlayers(g), phaseGame(g, 'scr'), course, scoresOf(g)).map(r => ({ name: r.name, label: r.played ? 'net ' + fmtPar(r.netToPar) : '–', played: r.played }));
+    return C.leaderboard(g.players, g.game, course, scoresOf(g)).map(r => ({ name: r.name, label: r.played ? (g.game.format === 'stableford' ? r.points + ' pts' : fmtPar(g.game.format === 'brut' ? r.toPar : r.netToPar)) : '–', played: r.played, playerId: r.playerId }));
+  }
+  // colonnes de carte de score : {p, gm, label, color}
+  function cardCols(g) {
+    if (!isTeamGame(g)) return g.players.map(p => ({ p, gm: g.game, label: p.name.split(' ')[0] }));
+    const tcols = teamPlayers(g).map(t => ({ p: t, gm: phaseGame(g, 'scr'), label: t.name.replace(/^(Les|Team)\s+/i, '').slice(0, 10), color: t.color }));
+    if (g.game.format === 'scramble') return tcols;
+    return tcols.concat(indivPlayers(g).map(p => ({ p, gm: phaseGame(g, 'mp'), label: p.name.split(' ')[0] })));
+  }
+
   const rougeEv = (g, pid, h) => (g.events || []).find(e => e.type === 'rouge' && e.player_id === pid && e.hole === h);
   const scoreCls = d => d <= -2 ? 'eagle' : d === -1 ? 'birdie' : d === 0 ? 'par' : d === 1 ? 'bogey' : 'dbl';
   const vibrate = pat => { try { navigator.vibrate && navigator.vibrate(pat || 15); } catch (e) { } };
@@ -892,21 +1026,32 @@
   /* --- Classement --- */
   function renderBoard(body, g) {
     const course = gameCourse(g);
-    const rows = C.leaderboard(g.players, g.game, course, scoresOf(g));
+    const rows = isTeamGame(g) ? C.leaderboard(teamPlayers(g), phaseGame(g, 'scr'), course, scoresOf(g)) : C.leaderboard(g.players, g.game, course, scoresOf(g));
     const spect = !!g.follow;
     const holesAll = C.holesFor(g.game.mode, course.holes.length);
-    const where = spect && g.game.status !== 'done' ? `<section class="card where"><b>📍 Où ils en sont</b>${g.players.map(p => { const sc = scoresOf(g)[p.id] || {}; const n = holesAll.filter(h => sc[h]).length; const last = [...holesAll].reverse().find(h => sc[h]); const ls = last ? sc[last] : null; return `<div class="wrow"><span>${esc(p.name)}</span><span>${n >= holesAll.length ? 'Terminé' : 'Trou ' + (holesAll[n] || holesAll[0])}</span><small>${last ? 'au ' + last + ' : ' + (ls.pickup ? 'X' : C.scoreName(ls.strokes, course.holes[last - 1].par, false)) : 'pas encore parti'}</small></div>`; }).join('')}</section>` : '';
+    const where = spect && g.game.status !== 'done' ? `<section class="card where"><b>📍 Où ils en sont</b>${(isTeamGame(g) ? teamPlayers(g) : g.players).map(p => { const sc = scoresOf(g)[p.id] || {}; const n = holesAll.filter(h => sc[h]).length; const last = [...holesAll].reverse().find(h => sc[h]); const ls = last ? sc[last] : null; return `<div class="wrow"><span>${esc(p.name)}</span><span>${n >= holesAll.length ? 'Terminé' : 'Trou ' + (holesAll[n] || holesAll[0])}</span><small>${last ? 'au ' + last + ' : ' + (ls.pickup ? 'X' : C.scoreName(ls.strokes, course.holes[last - 1].par, false)) : 'pas encore parti'}</small></div>`; }).join('')}</section>` : '';
     let html = where + `<section class="card"><b>${FORMATS[g.game.format]}</b><small>${MODES[g.game.mode]} · repère ${esc(teeName(course, g.game.tee))} · ${frDate(g.game.play_date)}${g.game.status === 'done' ? ' · terminée' : ''}</small></section>`;
+    if (g.game.format === 'combo') {
+      const r = comboResult(g);
+      if (r) {
+        const [ta, tb] = r.tps;
+        html += `<section class="combo"><div class="cteam">${teamDot(ta.color)}<b>${esc(ta.name)}</b><small>${ta.members.map(m => esc(m.name)).join(' · ')}</small></div><div class="cscore">${fmtPts(r.pts[0])} – ${fmtPts(r.pts[1])}</div><div class="cteam r">${teamDot(tb.color)}<b>${esc(tb.name)}</b><small>${tb.members.map(m => esc(m.name)).join(' · ')}</small></div></section>
+          <h2>🤝 Scramble · trous 1-9</h2><div class="duel"><b>${esc(r.scrLabel)}</b><small>${r.scr.map((x, i) => esc(r.tps[i].name) + ' : ' + (x.played ? x.gross + ' brut / ' + x.net + ' net (HCP ' + x.ph + ')' : '–')).join(' · ')}</small></div>
+          <h2>⚔️ Match play · trous 10-18</h2>${r.matches.map(x => `<div class="duel"><b>${esc(x.a.name)} vs ${esc(x.b.name)}</b><small>${esc(x.m.label)}${x.m.strokes ? ' · ' + esc(x.m.receiver) + ' reçoit ' + x.m.strokes : ''}</small></div>`).join('')}
+          <p class="hint">1 point pour le scramble, 1 point par match (½ en cas d'égalité). L'équipe qui perd paie la tournée.</p>`;
+      } else html += '<p class="muted">Le combo se joue à 2 équipes.</p>';
+    }
+    if (g.game.format === 'scramble') html += '<h2>Équipes</h2>';
     if (g.game.format === 'match') {
       const ps = g.players; const duels = [];
       for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) duels.push(C.matchPlay(ps[i], ps[j], g.game, course, scoresOf(g)[ps[i].id] || {}, scoresOf(g)[ps[j].id] || {}));
       html += duels.length ? duels.map(m => `<div class="duel"><b>${esc(m.label)}</b><small>${m.strokes ? esc(m.receiver) + ' reçoit ' + m.strokes + ' coup' + (m.strokes > 1 ? 's' : '') : 'Pas de coups rendus'} · ${m.played} trou${m.played > 1 ? 's' : ''} joué${m.played > 1 ? 's' : ''}</small></div>`).join('') : '<p class="muted">Ajoute un 2e joueur pour le match play.</p>';
       html += '<h2>Scores</h2>';
     }
-    html += `<table class="board"><thead><tr><th>#</th><th>Joueur</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>HCP ${r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>
+    html += `${g.game.format === 'combo' ? '<!--' : ''}<table class="board"><thead><tr><th>#</th><th>${isTeamGame(g) ? 'Équipe' : 'Joueur'}</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${isTeamGame(g) ? teamDot((teamPlayers(g).find(t => t.id === r.playerId) || {}).color) : led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>${isTeamGame(g) ? esc((teamPlayers(g).find(t => t.id === r.playerId) || { members: [] }).members.map(m => m.name).join(' · ')) + ' · ' : ''}HCP ${r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>${g.game.format === 'combo' ? '-->' : ''}
       ${(() => {
-        const pay = C.payers(g.players, g.game, course, scoresOf(g), g.events);
-        const lines = pay.last.map(x => `<li>🍻 <b>${esc(x.name)}</b> — ${g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant'}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
+        const pay = gamePayers(g);
+        const lines = pay.last.map(x => `<li>🍻 <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
         return `<h2>Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}<button class="btn ghost full" id="b-beer">🍺 Qui paie sa tournée ?</button>`;
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
@@ -915,7 +1060,7 @@
       <button class="btn ghost full danger" id="b-del">${spect ? '👋 Ne plus suivre' : '🗑️ Supprimer la partie'}</button>`;
     body.innerHTML = html;
     body.querySelector('#b-share').onclick = () => {
-      const lines = rows.map((r, i) => `${i + 1}. ${r.name} — ${g.game.format === 'stableford' ? r.points + ' pts · ' : ''}brut ${r.gross} (${fmtPar(r.toPar)}) · net ${r.net}`);
+      const lines = isTeamGame(g) ? standingsLite(g).map((r, i) => `${i + 1}. ${r.name} — ${r.label}`) : rows.map((r, i) => `${i + 1}. ${r.name} — ${g.game.format === 'stableford' ? r.points + ' pts · ' : ''}brut ${r.gross} (${fmtPar(r.toPar)}) · net ${r.net}`);
       shareText('⛳ ' + course.name + ' — ' + frDate(g.game.play_date) + '\n' + FORMATS[g.game.format] + '\n' + lines.join('\n'));
     };
     body.querySelector('#b-beer').onclick = () => celebrate(g.game.id);
@@ -927,13 +1072,14 @@
   function renderCard(body, g) {
     const course = gameCourse(g);
     const holes = C.holesFor(g.game.mode, course.holes.length);
-    const sums = g.players.map(p => C.playerSummary(p, g.game, course, scoresOf(g)[p.id] || {}));
+    const cols = cardCols(g);
+    const sums = cols.map(c => C.playerSummary(c.p, c.gm, course, scoresOf(g)[c.p.id] || {}));
     const cell = (s, h) => { const ph = s.perHole[h]; if (!ph || ph.gross == null) return '<td></td>'; const d = ph.gross - ph.par; return `<td><span class="sc ${ph.pickup ? 'pick' : scoreCls(d)}">${ph.pickup ? 'X' : ph.raw}</span>${g.game.format === 'stableford' ? `<sub>${ph.points}</sub>` : ''}</td>`; };
     const sub = (s, hs) => { let gr = 0, pt = 0, n = 0; hs.forEach(h => { const ph = s.perHole[h]; if (ph && ph.gross != null) { gr += ph.gross; pt += ph.points || 0; n++; } }); return n ? `<td><b>${gr}</b>${g.game.format === 'stableford' ? `<sub>${pt}</sub>` : ''}</td>` : '<td></td>'; };
     const front = holes.filter(h => h <= 9), back = holes.filter(h => h > 9);
     const row = h => `<tr><td class="h">${h}</td><td>${course.holes[h - 1].par}</td><td class="si">${course.holes[h - 1].si}</td>${sums.map(s => cell(s, h)).join('')}</tr>`;
     const tot = (label, hs) => `<tr class="tot"><td>${label}</td><td>${hs.reduce((a, h) => a + course.holes[h - 1].par, 0)}</td><td></td>${sums.map(s => sub(s, hs)).join('')}</tr>`;
-    body.innerHTML = `<div class="tablewrap"><table class="scard"><thead><tr><th>Trou</th><th>Par</th><th>HCP</th>${g.players.map(p => `<th>${esc(p.name.split(' ')[0])}</th>`).join('')}</tr></thead><tbody>
+    body.innerHTML = `<div class="tablewrap"><table class="scard"><thead><tr><th>Trou</th><th>Par</th><th>HCP</th>${cols.map(c => `<th>${c.color ? teamDot(c.color) : ''}${esc(c.label)}</th>`).join('')}</tr></thead><tbody>
       ${front.map(row).join('')}${front.length && back.length ? tot('Aller', front) : ''}${back.map(row).join('')}${front.length && back.length ? tot('Retour', back) : ''}${tot('Total', holes)}
       <tr class="tot"><td colspan="3">Putts</td>${sums.map(s => `<td>${s.putts != null ? s.putts : ''}</td>`).join('')}</tr>
       </tbody></table></div>
@@ -993,14 +1139,14 @@
       if (!list.length) { el.innerHTML = '<div class="empty">⛳<p>Aucune partie en cours pour l\'instant.</p><small>Dès que des copains jouent, leurs parties apparaissent ici en direct.</small></div>'; return; }
       el.innerHTML = '<p class="hint">Parties en cours des copains, mises à jour en direct. Touche une partie pour la suivre.</p>' + list.map(g => {
         const course = g.game.course; const holesAll = C.holesFor(g.game.mode, course.holes.length);
-        const rows = C.leaderboard(g.players, g.game, course, g.scores);
+        const rows = standingsLite(g);
         const done = Math.max(0, ...g.players.map(p => holesAll.filter(h => (g.scores[p.id] || {})[h]).length));
         const lastEv = g.events.filter(e => e.type !== 'tournee').slice(-1)[0];
         const evTxt = lastEv ? (lastEv.type === 'rouge' ? '🍺 ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
         const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
         return `<button class="livecard" data-g="${g.game.id}"><div class="lc-top"><b>${esc(course.name)}</b><span class="livedot">● LIVE</span></div>
           <small>${FORMATS[g.game.format]} · trou ${Math.min(done + 1, holesAll.length)}/${holesAll.length}${mine ? ' · ta partie' : ''}</small>
-          <ol>${rows.slice(0, 4).map(r => `<li><span>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}</span><b>${r.played ? (g.game.format === 'stableford' ? r.points + ' pts' : fmtPar(g.game.format === 'brut' ? r.toPar : r.netToPar)) : '–'}</b></li>`).join('')}</ol>
+          <ol>${rows.slice(0, 4).map(r => `<li><span>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}</span><b>${esc(r.label)}</b></li>`).join('')}</ol>
           ${evTxt ? `<div class="lc-ev">${evTxt}</div>` : ''}</button>`;
       }).join('');
       el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
@@ -1043,13 +1189,14 @@
   async function shareCardImage(g) {
     const course = gameCourse(g);
     const holes = C.holesFor(g.game.mode, course.holes.length);
-    const sums = g.players.map(p => C.playerSummary(p, g.game, course, scoresOf(g)[p.id] || {}));
-    const rows = C.leaderboard(g.players, g.game, course, scoresOf(g));
-    const pay = C.payers(g.players, g.game, course, scoresOf(g), g.events);
+    const cols = cardCols(g);
+    const sums = cols.map(c => C.playerSummary(c.p, c.gm, course, scoresOf(g)[c.p.id] || {}));
+    const rows = isTeamGame(g) ? standingsLite(g) : C.leaderboard(g.players, g.game, course, scoresOf(g));
+    const pay = gamePayers(g);
     const stb = g.game.format === 'stableford';
     const front = holes.filter(h => h <= 9), back = holes.filter(h => h > 9);
     const seq = [...front.map(h => ({ h })), ...(front.length && back.length ? [{ t: 'Aller', hs: front }] : []), ...back.map(h => ({ h })), ...(front.length && back.length ? [{ t: 'Retour', hs: back }] : []), { t: 'Total', hs: holes }];
-    const W = 1080, pad = 40, rowH = 50, colFix = [110, 80, 80], np = g.players.length;
+    const W = 1080, pad = 40, rowH = 50, colFix = [110, 80, 80], np = cols.length;
     const pw = Math.min(220, (W - pad * 2 - colFix.reduce((a, b) => a + b, 0)) / Math.max(np, 1));
     const headH = 230, rankH = 70 + rows.length * 56, payH = (pay.last.length || pay.rouges.length) ? 60 + (pay.last.length ? 50 : 0) + pay.rouges.length * 44 : 0;
     const H = headH + rowH * (seq.length + 1) + 40 + rankH + payH + 90;
@@ -1062,7 +1209,7 @@
     x.fillStyle = '#fff'; x.font = F(800, 50); x.fillText('⛳ ' + course.name, pad, 85);
     x.font = F(500, 30); x.fillStyle = '#cfe8d6';
     x.fillText(frDate(g.game.play_date) + ' · ' + FORMATS[g.game.format] + ' · ' + MODES[g.game.mode] + ' · repère ' + teeName(course, g.game.tee), pad, 140);
-    x.fillText(g.players.map(p => p.name).join(' · '), pad, 190);
+    x.fillText(isTeamGame(g) ? teamPlayers(g).map(t => t.name + ' (' + t.members.map(m => m.name).join(', ') + ')').join('  vs  ').slice(0, 70) : g.players.map(p => p.name).join(' · '), pad, 190);
     // tableau
     let y = headH + 20;
     const colsX = [pad, pad + colFix[0], pad + colFix[0] + colFix[1]];
@@ -1070,7 +1217,7 @@
     x.fillStyle = '#1b7a3d'; x.fillRect(pad, y, W - pad * 2, rowH);
     x.fillStyle = '#fff'; x.font = F(700, 24); x.textAlign = 'center';
     ['Trou', 'Par', 'HCP'].forEach((t, i) => x.fillText(t, colsX[i] + colFix[i] / 2, y + 33));
-    g.players.forEach((p, i) => x.fillText(p.name.split(' ')[0].slice(0, 10), pX(i) + pw / 2, y + 33));
+    cols.forEach((c, i) => x.fillText(c.label.slice(0, 10), pX(i) + pw / 2, y + 33));
     y += rowH;
     const colors = { eagle: '#d9363e', birdie: '#d9363e', par: '#14201a', bogey: '#2563c9', dbl: '#6b21a8', pick: '#68756d' };
     seq.forEach((r, k) => {
@@ -1106,7 +1253,7 @@
       x.fillStyle = i === 0 ? '#fff7e0' : '#fff'; x.fillRect(pad, y, W - pad * 2, 48);
       x.fillStyle = '#14201a'; x.font = F(800, 28); x.fillText((i === 0 ? '🏆 ' : (i + 1) + '. ') + r.name, pad + 16, y + 34);
       x.textAlign = 'right'; x.font = F(700, 26);
-      x.fillText((stb ? r.points + ' pts · ' : '') + 'brut ' + r.gross + ' (' + fmtPar(r.toPar) + ') · net ' + r.net, W - pad - 16, y + 34);
+      x.fillText(r.label != null ? r.label : (stb ? r.points + ' pts · ' : '') + 'brut ' + r.gross + ' (' + fmtPar(r.toPar) + ') · net ' + r.net, W - pad - 16, y + 34);
       x.textAlign = 'left'; y += 56;
     });
     // tournées
