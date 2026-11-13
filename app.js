@@ -35,6 +35,8 @@
   if (!S.me.code) S.me.code = code6();
   if (!S.me.partners) S.me.partners = [];
   if (S.me.follow == null) S.me.follow = true;
+  if (S.me.visible == null) S.me.visible = true;
+  S.onlineMap = {};
   S.hidden = new Set(LS.get('fw_hidden', []));
   LS.set('fw_me', S.me);
   S.seen = new Set();
@@ -238,6 +240,38 @@
     if (d.me && d.me.bag) S.me.bag = d.me.bag;
     LS.set('fw_games', S.games); LS.set('fw_courses', S.customCourses); LS.set('fw_me', S.me);
     return true;
+  }
+
+  /* ---------- Qui est en ligne (point vert) ---------- */
+  let presCh = null, presReady = false;
+  const led = devId => devId && devId !== S.me.deviceId && S.onlineMap[devId] ? '<i class="led" title="En ligne"></i>' : '';
+  function presenceMeta() {
+    const m = location.hash.match(/^#\/game\/([^/]+)/);
+    const g = m && S.games[m[1]];
+    const playing = g && !g.follow && g.game.status !== 'done';
+    return { device_id: S.me.deviceId, name: S.me.name, course: playing ? shortCourse(g.game.course.name) : null, gid: playing ? g.game.id : null, watching: g && g.follow ? shortCourse(g.game.course.name) : null, ts: Date.now() };
+  }
+  const shortCourse = n => (n || '').replace(/^UGOLF\s+/i, '').replace(/^Golf\s+(de\s+|du\s+)?/i, '');
+  function startPresence() {
+    if (!remoteOn() || presCh || !S.me.name) return;
+    presCh = sb.channel('fairway-online', { config: { presence: { key: S.me.deviceId } } });
+    presCh.on('presence', { event: 'sync' }, () => {
+      const st = presCh.presenceState(); const map = {};
+      Object.values(st).forEach(arr => arr.forEach(m => { if (m.device_id && (!map[m.device_id] || m.ts > map[m.device_id].ts)) map[m.device_id] = m; }));
+      S.onlineMap = map; refreshOnlineUI();
+    }).subscribe(status => { if (status === 'SUBSCRIBED') { presReady = true; trackPresence(); } });
+  }
+  function trackPresence() {
+    if (!presCh || !presReady) return;
+    if (S.me.visible) presCh.track(presenceMeta()).catch(() => { }); else presCh.untrack().catch(() => { });
+  }
+  function refreshOnlineUI() {
+    const box = document.getElementById('online');
+    if (box) {
+      const others = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId).sort((a, b) => (b.course ? 1 : 0) - (a.course ? 1 : 0) || (a.name || '').localeCompare(b.name || ''));
+      box.innerHTML = others.length ? `<h2>En ligne <span class="cnt">${others.length}</span></h2><div class="onl">${others.map(m => `<span class="onchip"><i class="led"></i>${esc(m.name || '?')}${m.course ? `<small>⛳ ${esc(m.course)}</small>` : m.watching ? `<small>👀 ${esc(m.watching)}</small>` : ''}</span>`).join('')}</div>` : '';
+    }
+    document.querySelectorAll('[data-dev]').forEach(el => { const on = !!(S.onlineMap[el.dataset.dev] && el.dataset.dev !== S.me.deviceId); el.classList.toggle('isonline', on); });
   }
 
   /* ---------- Suivre mes potes ---------- */
@@ -496,6 +530,7 @@
     const h = location.hash.replace(/^#\/?/, '');
     const [r, a, b] = h.split('/');
     if (r !== 'game') { stopGPS(); unsubscribe(); }
+    setTimeout(trackPresence, 300);
     if (!S.me.name && r !== 'join' && r !== 'profile') return viewWelcome();
     if (r === 'new') return viewNew();
     if (r === 'game' && a) return viewGame(a);
@@ -543,6 +578,7 @@
     $app.innerHTML = topbar('Fairway') + `<main>
       <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
+      <div id="online"></div>
       <div class="row2"><a class="btn big" href="#/new">＋ Nouvelle partie</a><button class="btn big ghost" data-act="join">Rejoindre</button></div>
       <a class="btn big full live" href="#/live">📺 Live <span id="livecount"></span></a>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
@@ -552,6 +588,7 @@
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(list => { const el = document.getElementById('livecount'); if (el && list.length) el.textContent = '· ' + list.length + ' partie' + (list.length > 1 ? 's' : '') + ' en cours'; });
+    refreshOnlineUI();
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
 
@@ -571,7 +608,7 @@
         <div class="row2"><label>Date<input type="date" id="n-date" value="${st.date}"></label><label>Départ<input type="time" id="n-time" value="${st.time}"></label></div>
         <h2>Joueurs</h2>
         <div id="n-players">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
-        ${partners.length ? `<h2>Mes partenaires</h2><div class="pick">${partners.map(m => `<button data-pk="${esc(m.key)}" class="${st.players.some(p => p.key === m.key) ? 'on' : ''}">${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`).join('')}</div><p class="hint">📱 = a l'appli : la partie apparaîtra directement sur son téléphone.</p>` : ''}
+        ${partners.length ? `<h2>Mes partenaires</h2><div class="pick">${partners.map(m => `<button data-pk="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${st.players.some(p => p.key === m.key) ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`).join('')}</div><p class="hint">📱 = a l'appli : la partie apparaîtra directement sur son téléphone.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint">Tes potes peuvent aussi se rajouter eux-mêmes avec le lien d'invitation, une fois la partie créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
@@ -865,7 +902,7 @@
       html += duels.length ? duels.map(m => `<div class="duel"><b>${esc(m.label)}</b><small>${m.strokes ? esc(m.receiver) + ' reçoit ' + m.strokes + ' coup' + (m.strokes > 1 ? 's' : '') : 'Pas de coups rendus'} · ${m.played} trou${m.played > 1 ? 's' : ''} joué${m.played > 1 ? 's' : ''}</small></div>`).join('') : '<p class="muted">Ajoute un 2e joueur pour le match play.</p>';
       html += '<h2>Scores</h2>';
     }
-    html += `<table class="board"><thead><tr><th>#</th><th>Joueur</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${esc(r.name)}<small>HCP ${r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>
+    html += `<table class="board"><thead><tr><th>#</th><th>Joueur</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>HCP ${r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>
       ${(() => {
         const pay = C.payers(g.players, g.game, course, scoresOf(g), g.events);
         const lines = pay.last.map(x => `<li>🍻 <b>${esc(x.name)}</b> — ${g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant'}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
@@ -942,7 +979,7 @@
         const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
         return `<button class="livecard" data-g="${g.game.id}"><div class="lc-top"><b>${esc(course.name)}</b><span class="livedot">● LIVE</span></div>
           <small>${FORMATS[g.game.format]} · trou ${Math.min(done + 1, holesAll.length)}/${holesAll.length}${mine ? ' · ta partie' : ''}</small>
-          <ol>${rows.slice(0, 4).map(r => `<li><span>${esc(r.name)}</span><b>${r.played ? (g.game.format === 'stableford' ? r.points + ' pts' : fmtPar(g.game.format === 'brut' ? r.toPar : r.netToPar)) : '–'}</b></li>`).join('')}</ol>
+          <ol>${rows.slice(0, 4).map(r => `<li><span>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}</span><b>${r.played ? (g.game.format === 'stableford' ? r.points + ' pts' : fmtPar(g.game.format === 'brut' ? r.toPar : r.netToPar)) : '–'}</b></li>`).join('')}</ol>
           ${evTxt ? `<div class="lc-ev">${evTxt}</div>` : ''}</button>`;
       }).join('');
       el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
@@ -1205,6 +1242,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
+      <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <h2>Mes distances (carry, m)</h2>
@@ -1228,6 +1266,7 @@
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
+    $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
     $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return alert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
@@ -1263,6 +1302,8 @@
     flush();
     if (S.me.name) syncProfile();
     pullMyGames().then(pullFollowGames).then(scheduleBackup);
+    startPresence();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { pullMyGames().then(pullFollowGames); flush(); } });
   }
   route();
