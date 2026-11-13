@@ -121,3 +121,7 @@ end $$;
 -- Nécessaire pour recevoir les suppressions en temps réel (ex. annulation « rouges »)
 alter table public.events replica identity full;
 alter table public.scores replica identity full;
+
+-- Droits d'accès explicites pour l'appli (utile si « Automatically expose new tables » est décoché)
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.courses, public.games, public.players, public.scores, public.profiles, public.events to anon, authenticated;
