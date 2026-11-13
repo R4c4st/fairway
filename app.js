@@ -35,6 +35,7 @@
   if (!S.me.code) S.me.code = code6();
   if (!S.me.partners) S.me.partners = [];
   if (S.me.follow == null) S.me.follow = true;
+  S.hidden = new Set(LS.get('fw_hidden', []));
   LS.set('fw_me', S.me);
   S.seen = new Set();
   const saveGames = () => { LS.set('fw_games', S.games); scheduleBackup(); };
@@ -166,6 +167,7 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: 'device_id=eq.' + S.me.deviceId }, async p => {
         const gid = p.new && p.new.game_id; if (!gid) return;
         if (S.games[gid] && S.games[gid].players.some(x => x.id === p.new.id && x.device_id === S.me.deviceId)) return;
+        if (S.hidden.has(gid)) return;
         const fresh = !S.games[gid];
         if (await refreshGame(gid)) {
           S.games[gid].mine = true; S.games[gid].follow = false; saveGames(); subscribeMe();
@@ -186,7 +188,7 @@
     if (!remoteOn()) return;
     try {
       const { data } = await sb.from('players').select('game_id').eq('device_id', S.me.deviceId);
-      const ids = [...new Set((data || []).map(r => r.game_id))].filter(id => !S.games[id] || S.games[id].game.status !== 'done');
+      const ids = [...new Set((data || []).map(r => r.game_id))].filter(id => !S.hidden.has(id) && (!S.games[id] || S.games[id].game.status !== 'done'));
       for (const id of ids) { if (await refreshGame(id)) { S.games[id].mine = true; S.games[id].follow = false; } }
       saveGames(); subscribeMe();
       if (location.hash === '' || location.hash === '#/') viewHome();
@@ -259,7 +261,7 @@
     try {
       const since = new Date(Date.now() - 2 * 864e5).toISOString();
       const { data } = await sb.from('players').select('game_id, created_at').in('device_id', ids).gte('created_at', since);
-      const gids = [...new Set((data || []).map(r => r.game_id))].filter(id => !S.games[id]);
+      const gids = [...new Set((data || []).map(r => r.game_id))].filter(id => !S.games[id] && !S.hidden.has(id));
       for (const id of gids) await followGame(id);
     } catch (e) { }
     subscribeMe();
@@ -863,13 +865,15 @@
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
       <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée en double bogey net pour le brut/net.</p>
-      <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>`;
+      <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>
+      <button class="btn ghost full danger" id="b-del">🗑️ Supprimer la partie</button>`;
     body.innerHTML = html;
     body.querySelector('#b-share').onclick = () => {
       const lines = rows.map((r, i) => `${i + 1}. ${r.name} — ${g.game.format === 'stableford' ? r.points + ' pts · ' : ''}brut ${r.gross} (${fmtPar(r.toPar)}) · net ${r.net}`);
       shareText('⛳ ' + course.name + ' — ' + frDate(g.game.play_date) + '\n' + FORMATS[g.game.format] + '\n' + lines.join('\n'));
     };
     body.querySelector('#b-beer').onclick = () => celebrate(g.game.id);
+    body.querySelector('#b-del').onclick = () => deleteGame(g);
     const e = body.querySelector('#b-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); renderGameBody(); celebrate(g.game.id); } };
   }
 
@@ -890,6 +894,24 @@
       <div class="legend"><span class="sc eagle">3</span>Eagle <span class="sc birdie">3</span>Birdie <span class="sc par">4</span>Par <span class="sc bogey">5</span>Bogey <span class="sc dbl">6</span>Double+ <span class="sc pick">X</span>Ramassée</div>
       <button class="btn big full" id="c-share">📤 Partager la carte de score</button>`;
     body.querySelector('#c-share').onclick = () => shareCardImage(g);
+  }
+
+  /* --- Suppression d'une partie --- */
+  function deleteGame(g) {
+    const others = g.players.filter(p => p.device_id && p.device_id !== S.me.deviceId);
+    const iCreated = !g.game.created_by || g.game.created_by === S.me.name;
+    let everywhere = false;
+    if (g.follow) { if (!confirm('Ne plus afficher cette partie ?')) return; }
+    else if (!others.length || !remoteOn()) { if (!confirm('Supprimer définitivement cette partie ?')) return; everywhere = true; }
+    else if (iCreated) {
+      const r = prompt('Partie partagée avec ' + others.map(p => p.name).join(', ') + '.\nTape 1 pour la supprimer pour tout le monde, 2 pour la retirer juste de ton téléphone.', '2');
+      if (r === '1') everywhere = true; else if (r !== '2') return;
+    } else if (!confirm('Retirer cette partie de ton téléphone ? (elle reste chez les autres joueurs)')) return;
+    delete S.games[g.game.id];
+    S.hidden.add(g.game.id); LS.set('fw_hidden', [...S.hidden]);
+    S.queue = S.queue.filter(o => !(o.row && (o.row.game_id === g.game.id || o.row.id === g.game.id))); saveQueue();
+    if (everywhere) push({ t: 'delete', table: 'games', match: { id: g.game.id } });
+    saveGames(); subscribeMe(); toast('Partie supprimée'); location.hash = '#/';
   }
 
   /* --- Carte de score en image (WhatsApp, etc.) --- */
