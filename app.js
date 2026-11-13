@@ -725,7 +725,6 @@
         <label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => st.hcp || k !== 'net').map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${!st.hcp && k === 'brut' ? 'Stroke play' : v}</option>`).join('')}</select></label>
         <label class="switch"><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><span>Prendre en compte les index<small>${st.hcp ? 'Coups reçus selon l\'index de chacun (net, Stableford net, handicap d\'équipe)' : 'Décoché : tout le monde joue en brut, à égalité'}</small></span></label>
         ${st.format === 'stableford' || st.format === 'match' ? '' : `<label>Croix (balle ramassée)<select id="n-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(st.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>`}
-        <div class="row2"><label>Date<input type="date" id="n-date" value="${st.date}"></label><label>Départ<input type="time" id="n-time" value="${st.time}"></label></div>
         <h2>Joueurs</h2>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
         ${partners.length ? `<h2>Les copains</h2><div class="pick">${partners.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div><p class="hint">Touche un copain pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
@@ -740,8 +739,6 @@
       bind('#n-course', 'courseId'); bind('#n-tee', 'tee'); bind('#n-mode', 'mode'); bind('#n-format', 'format');
       const xs = $app.querySelector('#n-xcap'); if (xs) xs.onchange = e => { st.xcap = Number(e.target.value); };
       $app.querySelector('#n-hcp').onchange = e => { st.hcp = e.target.checked; if (!st.hcp && st.format === 'net') st.format = 'brut'; draw(); };
-      $app.querySelector('#n-date').onchange = e => (st.date = e.target.value);
-      $app.querySelector('#n-time').onchange = e => (st.time = e.target.value);
       $app.querySelectorAll('#n-players input').forEach(inp => inp.oninput = e => { st.players[+e.target.dataset.i][e.target.dataset.f] = e.target.value; });
       $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { st.players.splice(+b.dataset.del, 1); draw(); });
       $app.querySelectorAll('[data-pk]').forEach(b => b.onclick = () => {
