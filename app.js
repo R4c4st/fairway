@@ -582,7 +582,7 @@
     subscribe(gid);
     rememberPartners(g);
     const lc = getCourse(g.game.course_id);
-    if (lc && !lc._osm && !lc.holes.some(h => h.gps && h.gps.center) && navigator.onLine) autoFlags(lc.id, true);
+    if (lc && !lc._osm && !lc.holes.some(h => h.gps && h.gps.center) && navigator.onLine) autoFlags(lc.id, false);
     if (remoteOn()) refreshGame(gid).then(ok => ok && liveRender());
     renderGameBody();
   }
