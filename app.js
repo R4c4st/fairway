@@ -810,7 +810,8 @@
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
-      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="join"><i>${FW_IC('join')}</i><b>Rejoindre</b></button><a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
+      ${installBar()}
+      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button><a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
@@ -821,7 +822,8 @@
     refreshOnlineUI();
     loadWeather();
     bindHist($app);
-    $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
+    $app.querySelector('[data-act=invite]').onclick = inviteSheet;
+    const ib = $app.querySelector('#installbar'); if (ib) ib.onclick = promptInstall;
   }
 
   /* --- Nouvelle partie --- */
@@ -1368,7 +1370,8 @@
   }
   let liveChannel = null, liveTimer2 = null;
   async function viewLive() {
-    $app.innerHTML = topbar('Live', '#/') + '<main id="livebody"><p class="muted">Recherche des parties en cours…</p></main>';
+    $app.innerHTML = topbar('Live', '#/') + '<main><div id="livebody"><p class="muted">Recherche des parties en cours…</p></div><button class="btn ghost full lvcode" id="lv-code">🔑 J\'ai un code de partie</button></main>';
+    $app.querySelector('#lv-code').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
     updateSyncBadge();
     if (!remoteOn()) { document.getElementById('livebody').innerHTML = '<p class="err">Serveur non configuré.</p>'; return; }
     const draw = async () => {
@@ -1808,13 +1811,62 @@
   }
 
   /* --- Bienvenue (1re installation) --- */
+  /* ---------- Inviter un nouveau + installation ---------- */
+  const APP_URL = 'https://r4c4st.github.io/fairway/';
+  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); installEvt = e;
+    if (document.getElementById('installbar')) return;
+    const anchor = document.querySelector('main .tiles') || document.querySelector('.welcome .form');
+    if (!anchor) return;
+    const tmp = document.createElement('div'); tmp.innerHTML = installBar(); const bar = tmp.firstElementChild; if (!bar) return;
+    if (anchor.classList.contains('tiles')) anchor.before(bar); else anchor.after(bar);
+    bar.onclick = promptInstall;
+  });
+  window.addEventListener('appinstalled', () => { installEvt = null; toast('Fairway est installée 🎉'); const b = document.getElementById('installbar'); if (b) b.remove(); });
+  function installBar() {
+    if (isStandalone()) return '';
+    if (installEvt) return `<button class="installbar" id="installbar">${FW_IC('install')}<span><b>Installer Fairway</b><small>Une icône sur ton écran, comme une vraie appli</small></span><i>›</i></button>`;
+    if (isIOS()) return `<div class="installbar ios"><span><b>Installer Fairway sur iPhone</b><small>Safari → bouton Partager ⬆️ → « Sur l'écran d'accueil »</small></span></div>`;
+    return '';
+  }
+  async function promptInstall() {
+    if (!installEvt) return alert('Dans Chrome : menu ⋮ → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »).');
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch (e) { }
+    installEvt = null; const b = document.getElementById('installbar'); if (b) b.remove();
+  }
+  function inviteSheet() {
+    let qr = '';
+    try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(APP_URL); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
+    const msg = 'Rejoins-nous sur Fairway ⛳ — l\'appli golf des copains (scores en direct, GPS, et le dernier paie sa tournée 🍺).\nOuvre ce lien avec Chrome et installe-la : ' + APP_URL;
+    const el = document.createElement('div'); el.className = 'modal';
+    el.innerHTML = `<div class="sheet invite"><h2 class="rgh">${FW_IC('invite')} Inviter un pote</h2>
+      <p class="muted">Il scanne le code avec l'appareil photo de son téléphone : l'appli s'ouvre et lui propose de l'installer.</p>
+      <div class="qrbox">${qr || '<p class="muted">QR code indisponible hors connexion</p>'}</div>
+      <div class="qrurl">${APP_URL.replace('https://', '')}</div>
+      <button class="btn big full" id="iv-share">Envoyer le lien (WhatsApp, SMS…)</button>
+      <button class="btn ghost full" id="iv-x">Fermer</button></div>`;
+    document.body.appendChild(el);
+    el.querySelector('#iv-x').onclick = () => el.remove();
+    el.onclick = e => { if (e.target === el) el.remove(); };
+    el.querySelector('#iv-share').onclick = async () => {
+      if (navigator.share) { try { await navigator.share({ title: 'Fairway', text: msg }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+      try { await navigator.clipboard.writeText(msg); toast('Lien copié 📋'); } catch (e) { prompt('Copie ce message :', msg); }
+    };
+  }
+
   function viewWelcome() {
     $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fairway"><h1>Fairway</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
       <div class="row2"><label>Index (facultatif)<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
       <button class="btn big full" id="w-go">C'est parti</button>
       <button class="btn ghost full" id="w-restore">J'ai déjà un profil</button></div>
+      ${installBar()}
       ${!remoteOn() ? '<p class="hint">Serveur non configuré : profil gardé sur ce téléphone seulement.</p>' : ''}</main>`;
+    { const ib = $app.querySelector('#installbar'); if (ib) ib.onclick = promptInstall; }
     $app.querySelector('#w-go').onclick = async () => {
       const n = $app.querySelector('#w-name').value.trim(); if (!n) return alert('Ton prénom ?');
       // même prénom déjà inscrit ? c'est peut-être toi sur un autre appareil
