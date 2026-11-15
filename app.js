@@ -589,7 +589,7 @@
     ['putt', '🏌️', 'Putter d\'or', '18 trous sans 3-putt (putts saisis)', 's'],
     ['norouge', '🛡️', 'Jamais dans les rouges', '18 trous sans rouge', 'b'],
     ['win1', '🏆', 'Première victoire', 'Gagner une partie', 's'],
-    ['win5', '👑', 'Patron', 'Gagner 5 parties', 'g'],
+    ['win5', '🏅', 'Patron', 'Gagner 5 parties', 'g'],
     ['nice5', '⭐', 'Showman', 'Recevoir 5 Nice shots', 's'],
     ['games10', '📅', 'Fidèle', 'Jouer 10 parties', 'b'],
     ['rouge5', '🍺', 'Abonné aux tournées', '5 rouges pas passés', 'b']
@@ -2113,7 +2113,7 @@
     const lbl = 'Fly Tour · étape de ' + MOIS[m - 1];
     if (i < 0) return `<a class="sstrip" href="#/classement"><span class="rk">–</span><div><b>${lbl}</b><small>${rows.length ? 'Joue une partie pour entrer dans l\'étape' : 'Pas encore de points ce mois-ci'}</small></div><div class="pts"><b>0</b><small>pt</small></div></a>`;
     const me = rows[i]; const ahead = i > 0 ? rows[i - 1] : null;
-    const sub = ahead ? `à ${ahead.pts - me.pts} pt${ahead.pts - me.pts > 1 ? 's' : ''} de ${esc(ahead.name)}` : (rows.length > 1 ? `${me.pts - rows[1].pts} pt${me.pts - rows[1].pts > 1 ? 's' : ''} d'avance 👑` : 'en tête 👑');
+    const sub = ahead ? `à ${ahead.pts - me.pts} pt${ahead.pts - me.pts > 1 ? 's' : ''} de ${esc(ahead.name)}` : (rows.length > 1 ? `${me.pts - rows[1].pts} pt${me.pts - rows[1].pts > 1 ? 's' : ''} d'avance` : 'en tête');
     return `<a class="sstrip" href="#/classement"><span class="rk">${i + 1}<sup>${i ? 'e' : 'er'}</sup></span><div><b>${lbl}</b><small>${sub} · ${left > 0 ? left + ' jour' + (left > 1 ? 's' : '') + ' restant' + (left > 1 ? 's' : '') : 'dernier jour !'}</small></div><div class="pts"><b>${me.pts}</b><small>pts</small></div></a>`;
   }
   function viewSeason(tab) {
@@ -2123,7 +2123,7 @@
       const rows = !d ? [] : tab === 'cur' ? d.cur : tab === 'prev' ? d.prev : d.yearRows;
       const curM = monthKey(today());
       const tabs = [['cur', MOIS[+curM.slice(5) - 1]], ['prev', MOIS[+prevMonthKey(curM).slice(5) - 1]], ['year', 'Saison ' + curM.slice(0, 4)]];
-      const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '👑 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
+      const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '🏆 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
       const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}${tab === 'year' && d.cups && d.cups[r.dev] ? ` <span class="cup">🏆×${d.cups[r.dev]}</span>` : ''}<small>${tab === 'year' ? r.games + ' partie' + (r.games > 1 ? 's' : '') : r.kept + '/' + BEST_BLOCKS + ' × 9 trous'}</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
       const mine = rows.find(r => r.dev === S.me.deviceId);
       const det = mine ? `<h2>Mes points</h2><div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
@@ -2143,7 +2143,7 @@
     LS.set('fw_crown', d.prevKey);
     const r = d.prev; const el = document.createElement('div'); el.className = 'pop';
     const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#ffd400', '#f7c531', '#fff', '#22a052'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
-    el.innerHTML = `<div class="conf">${conf}</div><div class="popcard"><div class="popemoji">👑</div><div class="popsub">Fly Tour · étape de ${MOIS[+d.prevKey.slice(5) - 1]}</div><div class="poptitle">${esc(r[0].name)} remporte la Fly Cup !</div><div class="popsub">${r[0].pts} pts${r[1] ? ' · 2e ' + esc(r[1].name) + ' (' + r[1].pts + ')' : ''}${r[2] ? ' · 3e ' + esc(r[2].name) + ' (' + r[2].pts + ')' : ''}</div></div>`;
+    el.innerHTML = `<div class="conf">${conf}</div><div class="popcard"><div class="popemoji poptr">${FW_IC('trophy')}</div><div class="popsub">Fly Tour · étape de ${MOIS[+d.prevKey.slice(5) - 1]}</div><div class="poptitle">${esc(r[0].name)} remporte la Fly Cup !</div><div class="popsub">${r[0].pts} pts${r[1] ? ' · 2e ' + esc(r[1].name) + ' (' + r[1].pts + ')' : ''}${r[2] ? ' · 3e ' + esc(r[2].name) + ' (' + r[2].pts + ')' : ''}</div></div>`;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 300); };
     el.onclick = close; setTimeout(close, 6000);
