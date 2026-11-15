@@ -640,6 +640,7 @@
     else if (!navigator.onLine) { txt = 'Hors ligne' + (S.queue.length ? ' · ' + S.queue.length : ''); cls = 'warn'; }
     else if (S.queue.length) { txt = 'Envoi…'; cls = 'warn'; }
     else { txt = S.live ? 'En direct' : 'Synchro'; cls = 'ok'; }
+    if (el.dataset.dot) { el.className = 'sync dot ' + cls; el.title = txt; return; }
     el.textContent = txt; el.className = 'sync ' + cls;
   }
 
@@ -705,7 +706,7 @@
 
   /* ---------- Rendu ---------- */
   function topbar(title, back, extra) {
-    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="' + logoURL() + '" alt="">'}<h1>${esc(title)}${title === 'Fairway' ? ' <span class="beta">Bêta version pour les copains</span>' : ''}</h1><span id="sync" class="sync"></span>${extra || ''}</header>`;
+    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="' + logoURL() + '" alt="">'}<h1>${esc(title)}</h1>${extra === 'me' ? `<a class="mechip" href="#/profile"><span class="mc-t"><b>${esc(S.me.name || 'Profil')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></span><i id="sync" class="sync dot" data-dot="1"></i></a>` : '<span id="sync" class="sync"></span>' + (extra || '')}</header>`;
   }
   function route() {
     const h = location.hash.replace(/^#\/?/, '');
@@ -760,8 +761,7 @@
       const holesDone = Math.max(0, ...g.players.map(p => Object.keys(scoresOf(g)[p.id] || {}).length).concat(teamPlayers(g).map(t => 0)));
       return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${indivPlayers(g).map(x => led(x.device_id) + esc(x.name)).join(', ')}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead ? 'En tête : ' + esc(lead.name) + ' (' + esc(lead.label) + ')' : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
     };
-    $app.innerHTML = topbar('Fairway') + `<main>
-      <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
+    $app.innerHTML = topbar('Fairway', null, 'me') + `<main>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
