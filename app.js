@@ -554,7 +554,7 @@
     const st = { pid: (myPlayer(g) || g.players[0] || {}).id, type: null };
     const el = document.createElement('div'); el.className = 'modal';
     const draw = () => {
-      el.innerHTML = `<div class="sheet"><h2>${FW_IC('shot')} Signaler un beau coup</h2>
+      el.innerHTML = `<div class="sheet"><h2 class="rgh">${FW_IC('gold')} Signaler un beau coup</h2>
         <div class="pick">${indivPlayers(g).map(p => `<button data-p="${p.id}" class="${p.id === st.pid ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
         <div class="pick shots">${SHOTS.map(s => `<button data-t="${s[0]}" class="${s[0] === st.type ? 'on' : ''}"><span>${s[1]}</span>${s[2]}</button>`).join('')}</div>
         <button class="btn big full" id="sh-go" ${st.pid && st.type ? '' : 'disabled'}>Envoyer à tout le monde</button>
@@ -570,6 +570,27 @@
     };
     draw(); document.body.appendChild(el);
     el.onclick = e => { if (e.target === el) el.remove(); };
+  }
+
+  // joueurs concernés par les rouges (pas ceux qui partent des rouges)
+  function rougeEligible(g) {
+    const t = teamPidSet(g);
+    const list = [];
+    g.players.forEach(p => { if (p.members) p.members.forEach(m => list.push({ id: m.id, name: m.name, tee: m.tee })); else if (!t.has(p.id)) list.push(p); });
+    return list.filter(p => (p.tee || g.game.tee) !== 'rouge');
+  }
+  function rougeSheet(g, hole) {
+    const el = document.createElement('div'); el.className = 'modal';
+    const draw = () => {
+      el.innerHTML = `<div class="sheet"><h2 class="rgh">${FW_IC('croix')} Pas passé les rouges · trou ${hole}</h2>
+        <p class="muted">Touche le ou les joueurs concernés. Chaque rouge = une tournée 🍺</p>
+        <div class="pick rpick">${rougeEligible(g).map(p => `<button data-p="${p.id}" class="${rougeEv(g, p.id, hole) ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
+        <button class="btn full" id="rg-x">OK</button></div>`;
+      el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const ev = rougeEv(g, b.dataset.p, hole); if (ev) removeEvent(g.game.id, ev.id); else { addEvent(g.game.id, { player_id: b.dataset.p, type: 'rouge', hole }); vibrate(); } draw(); });
+      el.querySelector('#rg-x').onclick = () => { el.remove(); renderGameBody(); };
+    };
+    draw(); document.body.appendChild(el);
+    el.onclick = e => { if (e.target === el) { el.remove(); renderGameBody(); } };
   }
 
   /* ---------- Fin de partie : la tournée ---------- */
@@ -764,6 +785,16 @@
       else { const p = myPlayer(g) || g.players[0]; s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null; if (s && s.played) sc = g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')'; }
       return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
     };
+    // historique : tuile compacte (date, lieu, score), touche pour déplier / replier
+    const histCard = g => {
+      const full = card(g);
+      const sc = (full.match(/<div class="gscore">([\s\S]*?)<small>/) || [])[1] || '—';
+      const hl = (full.match(/<div class="gscore">[\s\S]*?<small>([\s\S]*?)<\/small>/) || [])[1] || '';
+      const who = isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ');
+      const d = new Date(g.game.play_date + 'T12:00');
+      return `<div class="hcard" data-hx="${g.game.id}"><div class="hrow"><span class="hdate"><b>${d.getDate()}</b><small>${d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}</small></span><span class="hcourse">${esc(g.game.course.name)}</span><span class="hsc">${sc}</span><span class="hchev">›</span></div>
+        <div class="hmore"><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}${hl ? ' · ' + hl + ' joués' : ''}</small><small>${who}</small><a class="btn ghost sm" href="#/game/${g.game.id}">Voir la partie ›</a></div></div>`;
+    };
     const potesCard = g => {
       const sl = standingsLite(g);
       const lead = sl[0] && sl[0].played ? { name: sl[0].name, label: sl[0].label } : null;
@@ -777,13 +808,14 @@
       <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="join"><i>${FW_IC('join')}</i><b>Rejoindre</b></button><a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
-      <h2>Historique</h2>${done.length ? done.slice(0, 15).map(card).join('') : '<p class="muted">Aucune partie terminée.</p>'}
+      <h2>Historique</h2>${done.length ? done.slice(0, 15).map(histCard).join('') : '<p class="muted">Aucune partie terminée.</p>'}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
     refreshOnlineUI();
     loadWeather();
+    $app.querySelectorAll('[data-hx]').forEach(c => c.onclick = e => { if (e.target.closest('a')) return; c.classList.toggle('open'); });
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
 
@@ -987,16 +1019,14 @@
         <div class="stepper"><button data-s="-1">−</button><span class="val ${cls}">${shown}</span><button data-s="1">＋</button></div>
         <div class="sub"><span>Putts</span><button data-pt="-1">−</button><span class="pv">${cur.putts != null ? cur.putts : '–'}</span><button data-pt="1">＋</button>
           <button class="pickbtn ${cur.pickup ? 'on' : ''}" data-pick="1" title="Balle ramassée">X</button>
-          ${p.members ? '' : ((p.tee || g.game.tee) !== 'rouge' ? `<button class="pickbtn rougebtn ${rougeEv(g, p.id, h) ? 'on' : ''}" data-rouge="1" title="Pas passé les rouges">${FW_IC('tournee')} Rouges</button>` : '')}
           <span class="res">${ph && ph.gross != null ? C.scoreName(cur.strokes, ch.par, cur.pickup) + (g.game.format === 'stableford' ? ' · ' + ph.points + ' pt' + (ph.points > 1 ? 's' : '') : '') : ''}</span></div>
-        ${p.members && g.game.tee !== 'rouge' ? `<div class="sub rmem"><span>${FW_IC('tournee')} Rouges :</span>${p.members.map(m => `<button class="pickbtn rougebtn ${rougeEv(g, m.id, h) ? 'on' : ''}" data-rpid="${m.id}">${esc(m.name.split(' ')[0])}</button>`).join('')}</div>` : ''}
       </div>`;
     }).join('');
     const idx = holes.indexOf(h);
     body.innerHTML = holeChips(g, h) + `
       <section class="holehead"><div class="hn">${h}</div><div><b>Par ${ch.par}</b> · HCP ${ch.si}${dist ? ' · ' + dist + ' m' : ''}<small>${stars ? `<span class="stars">${stars}</span> ` : ''}${ch.note ? esc(ch.note) : '<i class="muted">Pas de note sur ce trou</i>'}</small></div><button class="icon" id="h-note" aria-label="Modifier la note">✏️</button></section>
       <section class="gps" id="gps"></section>
-      <button class="btn shotbtn full" id="h-shot">${FW_IC('shot')} Signaler un beau coup</button>
+      <div class="actrow"><button class="act good" id="h-shot">${FW_IC('gold')}<b>Beau coup</b></button>${rougeEligible(g).length ? `<button class="act bad" id="h-rouge">${FW_IC('croix')}<b>Rouges</b>${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length ? `<span class="actn">${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length}</span>` : ''}</button>` : ''}</div>
       ${phaseInfo}
       <section class="players">${sumRows}</section>
       ${!isTeamGame(g) && g.players.length < 8 ? '<button class="btn ghost full" id="h-addp">＋ Ajouter un joueur</button>' : ''}
@@ -1025,6 +1055,7 @@
     });
     body.querySelector('#h-note').onclick = () => editNote(g, h);
     body.querySelector('#h-shot').onclick = () => shotSheet(g, h);
+    const hr = body.querySelector('#h-rouge'); if (hr) hr.onclick = () => rougeSheet(g, h);
     const add = body.querySelector('#h-addp'); if (add) add.onclick = () => addPlayerSheet(g);
     const go = d => { S.hole[g.game.id] = holes[idx + d]; S.measure = null; renderGameBody(); window.scrollTo(0, 0); };
     const p = body.querySelector('#h-prev'); if (p) p.onclick = () => go(-1);

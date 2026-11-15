@@ -382,6 +382,29 @@ html[data-theme=dark] .tile.live{color:#ff6b6b}
 .shotbtn{background:var(--card)!important;color:#d32f2f!important;border:1px solid var(--bd)!important;display:flex;align-items:center;justify-content:center;gap:8px}
 .shotbtn .ic{width:30px;height:30px;vertical-align:0}
 .paylist .ic{width:1.5em;height:1.5em}
+.actrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 10px}
+.act{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;min-height:62px;border:0;border-radius:16px;font:inherit;font-size:16px;color:#fff;cursor:pointer;padding:8px}
+.act .ic{width:38px;height:38px;vertical-align:0}
+.act.good{background:linear-gradient(135deg,#27ae60,#16803f);box-shadow:0 3px 0 #0f5c2d}
+.act.bad{background:linear-gradient(135deg,#ef2b2b,#b3141a);box-shadow:0 3px 0 #7a0c10}
+.act:active{transform:translateY(2px);box-shadow:none}
+.act:only-child{grid-column:1/-1}
+.actn{position:absolute;top:6px;right:8px;min-width:22px;height:22px;border-radius:11px;background:#ffcc00;color:#1a1a1a;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 6px}
+.rpick button.on{background:#e5161d;border-color:#e5161d;color:#fff}
+.rgh{display:flex;align-items:center;gap:8px}
+.rgh .ic{width:34px;height:34px}
+html[data-big] .act{min-height:72px;font-size:19px}
+.hcard{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:8px;padding:8px 12px;cursor:pointer}
+.hrow{display:flex;align-items:center;gap:12px}
+.hdate{display:flex;flex-direction:column;align-items:center;line-height:1;min-width:38px;padding:4px 0;border-radius:10px;background:var(--gl);color:var(--g)}
+.hdate b{font-size:18px}.hdate small{font-size:11px;text-transform:uppercase;font-weight:700}
+.hcourse{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+.hsc{font-weight:800;font-size:18px;color:var(--tx);white-space:nowrap}
+.hchev{color:var(--mu);font-size:22px;transition:transform .2s;line-height:1}
+.hcard.open .hchev{transform:rotate(90deg)}
+.hmore{display:none;flex-direction:column;gap:4px;padding:8px 0 4px 50px;color:var(--mu)}
+.hcard.open .hmore{display:flex}
+.hmore .btn{align-self:flex-start;margin-top:4px}
 </style>
 </head>
 <body>
