@@ -765,15 +765,14 @@
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
-      <div class="row2"><a class="btn big" href="#/new">＋ Nouvelle partie</a><button class="btn big ghost" data-act="join">Rejoindre</button></div>
-      <a class="btn big full live" href="#/live">📺 Live <span id="livecount"></span></a>
+      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="join"><i>🔗</i><b>Rejoindre</b></button><a class="tile live" href="#/live"><i>📺</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 15).map(card).join('') : '<p class="muted">Aucune partie terminée.</p>'}
       <div class="row3"><a class="btn ghost" href="#/stats">📊 Stats</a><a class="btn ghost" href="#/courses">🗺️ Parcours</a><a class="btn ghost" href="#/profile">⚙️ Réglages</a></div>
     </main>`;
     updateSyncBadge();
-    if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = '· ' + list.length + ' partie' + (list.length > 1 ? 's' : '') + ' en cours'; });
+    if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
     refreshOnlineUI();
     loadWeather();
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };

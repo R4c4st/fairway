@@ -350,6 +350,17 @@ html[data-theme=dark] .wx-alert{background:#132a4d;color:#9cc3ff}
 .wx-h b{font-size:14px;color:var(--tx)}
 .wx-h small{font-size:11px;color:var(--mu)}
 .wx-h small.wet{color:#3d8bfd;font-weight:700}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.tile{position:relative;aspect-ratio:1/0.82;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:16px;text-decoration:none;font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--gd);padding:6px}
+.tile i{font-style:normal;font-size:28px;line-height:1}
+.tile b{font-size:15px;line-height:1.15;text-align:center}
+.tile.new{background:var(--g);border-color:var(--g);color:#fff}
+.tile.new i{font-size:34px;font-weight:300}
+.tile.live{background:linear-gradient(135deg,#d9363e,#ff7a45);border:0;color:#fff}
+#livecount:empty{display:none}
+#livecount{position:absolute;top:8px;right:8px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#fff;color:#d9363e;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center}
+html[data-theme=dark] .tile.join{color:var(--acc,#bfe9cc)}
+html[data-big] .tile b{font-size:18px}
 </style>
 </head>
 <body>
