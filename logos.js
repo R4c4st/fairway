@@ -6,6 +6,10 @@ window.FW_PALETTES = {
 };
 
 window.FW_LOGOS = {
+  // Fly18 · A : « 18 » chiffré, drapeau planté dans la boucle du 8
+  fly18: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="114" fill="${c}"/><g transform="translate(256 256) scale(.82) translate(-278 -264)"><path d="M100 168 L172 124 H216 V388 H162 V196 L112 222 Z" fill="#fff"/><path fill="#fff" fill-rule="evenodd" d="M348 120c-58 0-96 32-96 76 0 28 15 48 39 60-31 13-51 37-51 70 0 50 44 82 108 82s108-32 108-82c0-33-20-57-51-70 24-12 39-32 39-60 0-44-38-76-96-76zm0 46c24 0 40 13 40 34s-16 34-40 34-40-13-40-34 16-34 40-34zm0 112c30 0 50 17 50 42s-20 42-50 42-50-17-50-42 20-42 50-42z"/><rect x="343" y="256" width="10" height="68" rx="3" fill="#fff"/><path d="M353 257 L388 271 L353 285Z" fill="#e8343a"/><ellipse cx="348" cy="325" rx="17" ry="4.5" fill="${d}" opacity=".55"/></g></svg>`,
+  // Fly18 · D : F penché + balle
+  flyf: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="114" fill="${c}"/><path d="M178 112 H384 L352 172 H244 L236 228 H336 L304 288 H226 L210 400 H146 Z" fill="#fff"/><circle cx="352" cy="372" r="34" fill="#ffd23f"/><circle cx="342" cy="362" r="8" fill="#fff" opacity=".45"/></svg>`,
   // Pro A : drapeau épuré
   pro_f: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${c}"/><circle cx="256" cy="256" r="178" fill="${d}"/><rect x="198" y="118" width="34" height="270" rx="17" fill="#fff"/><path d="M232 122 H350 L326 160 L350 198 H232 Z" fill="#fff"/><ellipse cx="256" cy="398" rx="84" ry="14" fill="#fff" opacity=".9"/><circle cx="318" cy="370" r="16" fill="#fff"/></svg>`,
   // Pro C : balle sur tee, sobre
@@ -21,9 +25,9 @@ window.FW_LOGOS = {
   // 4. Monogramme F + balle
   monogramme: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${d}"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#bg)"/><path d="M168 400 V120 H340 M168 250 H300" fill="none" stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/><circle cx="362" cy="372" r="46" fill="#fff"/><g fill="#c4c9cd"><circle cx="348" cy="358" r="5"/><circle cx="368" cy="352" r="5"/><circle cx="380" cy="372" r="5"/><circle cx="356" cy="380" r="5"/><circle cx="372" cy="392" r="5"/></g><path d="M330 300 q16 -26 40 -8" fill="none" stroke="#ffc83d" stroke-width="10" stroke-linecap="round"/></svg>`
 };
-window.FW_LOGO_NAMES = { pro_f: 'Drapeau pro', pro_balle: 'Balle & tee', fairway: 'Fairway', chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
+window.FW_LOGO_NAMES = { fly18: 'Fly18 · 18', flyf: 'Fly18 · F', pro_f: 'Drapeau pro', pro_balle: 'Balle & tee', fairway: 'Fairway', chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
 window.fwLogoURL = (style, palette) => {
   const p = window.FW_PALETTES[palette] || window.FW_PALETTES.vert;
-  const f = window.FW_LOGOS[style] || window.FW_LOGOS.pro_balle;
+  const f = window.FW_LOGOS[style] || window.FW_LOGOS.fly18;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f(p.g, p.gd));
 };

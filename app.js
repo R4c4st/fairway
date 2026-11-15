@@ -1,4 +1,4 @@
-/* Fairway — golf entre potes : scores, calculs, GPS, parcours, parties partagées */
+/* Fly18 (ex-Fairway) — golf entre potes : scores, calculs, GPS, parcours, parties partagées */
 (function () {
   'use strict';
   const C = window.GolfCore;
@@ -53,8 +53,8 @@
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   if (!S.me.color) S.me.color = 'vert';
   if (!S.me.logo || !S.me.logoV2) { S.me.logo = 'pro_balle'; S.me.logoV2 = 1; }
-  if (!S.me.logoV3) { if (S.me.logo === 'pro_f') S.me.logo = 'pro_balle'; S.me.logoV3 = 1; }
-  if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'pro_balle';
+  if (!S.me.logoV4) { S.me.logo = 'fly18'; S.me.logoV3 = 1; S.me.logoV4 = 1; }
+  if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'fly18';
   if (window.FW_PALETTES && !window.FW_PALETTES[S.me.color]) S.me.color = 'vert';
   const logoURL = () => window.fwLogoURL ? window.fwLogoURL(S.me.logo, S.me.color) : 'icon.svg';
   function applyTheme() {
@@ -878,8 +878,10 @@
   function stopGPS() { if (S.watchId != null) { navigator.geolocation.clearWatch(S.watchId); S.watchId = null; } }
 
   /* ---------- Rendu ---------- */
+  // nom de l'appli : FA + I en drapeau + R en gras, WAY en fin
+  const WORDMARK = '<span class="wm" aria-label="Fly18">FLY<span class="wm18">18</span></span>';
   function topbar(title, back, extra) {
-    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="' + logoURL() + '" alt="">'}<h1>${esc(title)}</h1>${extra === 'me' ? `<a class="mechip" href="#/profile"><span class="mc-t"><b>${esc(S.me.name || 'Profil')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></span><i id="sync" class="sync dot" data-dot="1"></i></a>` : '<span id="sync" class="sync"></span>' + (extra || '')}</header>`;
+    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="' + logoURL() + '" alt="">'}<h1>${title === 'Fairway' ? WORDMARK : esc(title)}</h1>${extra === 'me' ? `<a class="mechip" href="#/profile"><span class="mc-t"><b>${esc(S.me.name || 'Profil')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></span><i id="sync" class="sync dot" data-dot="1"></i></a>` : '<span id="sync" class="sync"></span>' + (extra || '')}</header>`;
   }
   function route() {
     const h = location.hash.replace(/^#\/?/, '');
@@ -1787,7 +1789,7 @@
       if (pay.last.length) { y += 40; x.fillStyle = '#14201a'; x.font = F(800, 30); x.fillText('🍻 Merci ' + pay.last.map(p => p.name).join(' et ') + ' !', pad, y); }
       pay.rouges.forEach(r => { y += 44; x.font = F(600, 26); x.fillText('🍺 ' + r.name + ' — pas passé les rouges (trou ' + r.holes.join(', ') + ')', pad, y); });
     }
-    x.fillStyle = '#68756d'; x.font = F(600, 22); x.textAlign = 'center'; x.fillText('Fairway — golf entre potes', W / 2, H - 30);
+    x.fillStyle = '#68756d'; x.font = F(600, 22); x.textAlign = 'center'; x.fillText('Fly18 — golf entre potes', W / 2, H - 30);
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     const name = 'carte-' + (course.name.split(' ').pop() || 'golf').toLowerCase() + '-' + g.game.play_date + '.png';
     const file = new File([blob], name, { type: 'image/png' });
@@ -2006,11 +2008,11 @@
     if (anchor.classList.contains('tiles')) anchor.before(bar); else anchor.after(bar);
     bar.onclick = promptInstall;
   });
-  window.addEventListener('appinstalled', () => { installEvt = null; toast('Fairway est installée 🎉'); const b = document.getElementById('installbar'); if (b) b.remove(); });
+  window.addEventListener('appinstalled', () => { installEvt = null; toast('Fly18 est installée 🎉'); const b = document.getElementById('installbar'); if (b) b.remove(); });
   function installBar() {
     if (isStandalone()) return '';
-    if (installEvt) return `<button class="installbar" id="installbar">${FW_IC('install')}<span><b>Installer Fairway</b><small>Une icône sur ton écran, comme une vraie appli</small></span><i>›</i></button>`;
-    if (isIOS()) return `<div class="installbar ios"><span><b>Installer Fairway sur iPhone</b><small>Safari → bouton Partager ⬆️ → « Sur l'écran d'accueil »</small></span></div>`;
+    if (installEvt) return `<button class="installbar" id="installbar">${FW_IC('install')}<span><b>Installer Fly18</b><small>Une icône sur ton écran, comme une vraie appli</small></span><i>›</i></button>`;
+    if (isIOS()) return `<div class="installbar ios"><span><b>Installer Fly18 sur iPhone</b><small>Safari → bouton Partager ⬆️ → « Sur l'écran d'accueil »</small></span></div>`;
     return '';
   }
   async function promptInstall() {
@@ -2022,7 +2024,7 @@
   function inviteSheet() {
     let qr = '';
     try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(APP_URL); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
-    const msg = 'Rejoins-nous sur Fairway ⛳ — l\'appli golf des copains (scores en direct, GPS, et le dernier paie sa tournée 🍺).\nOuvre ce lien avec Chrome et installe-la : ' + APP_URL;
+    const msg = 'Rejoins-nous sur Fly18 ⛳ — l\'appli golf des copains (scores en direct, GPS, et le dernier paie sa tournée 🍺).\nOuvre ce lien avec Chrome et installe-la : ' + APP_URL;
     const el = document.createElement('div'); el.className = 'modal';
     el.innerHTML = `<div class="sheet invite"><h2 class="rgh">${FW_IC('invite')} Inviter un pote</h2>
       <p class="muted">Il scanne le code avec l'appareil photo de son téléphone : l'appli s'ouvre et lui propose de l'installer.</p>
@@ -2034,13 +2036,13 @@
     el.querySelector('#iv-x').onclick = () => el.remove();
     el.onclick = e => { if (e.target === el) el.remove(); };
     el.querySelector('#iv-share').onclick = async () => {
-      if (navigator.share) { try { await navigator.share({ title: 'Fairway', text: msg }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+      if (navigator.share) { try { await navigator.share({ title: 'Fly18', text: msg }); return; } catch (e) { if (e.name === 'AbortError') return; } }
       try { await navigator.clipboard.writeText(msg); toast('Lien copié 📋'); } catch (e) { fwPrompt('Copie ce message :', msg); }
     };
   }
 
   function viewWelcome() {
-    $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fairway"><h1>Fairway</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
+    $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fly18"><h1>${WORDMARK}</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
       <div class="row2"><label>Index (facultatif)<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
       <button class="btn big full" id="w-go">C'est parti</button>
