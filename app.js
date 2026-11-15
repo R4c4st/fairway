@@ -311,6 +311,13 @@
 
   /* ---------- Flights : groupes privés, on n'y entre que sur invitation ---------- */
   S.flights = LS.get('fw_flights', []);
+  // blason propre à chaque Flight : palette tirée au hasard à la création + initiales
+  const FL_PAL = [['#1b7a3d', '#ffd23f'], ['#1d4f91', '#e8edf5'], ['#7a1f2b', '#f2c46d'], ['#2b2b2b', '#d4ad3d'], ['#0f6e6e', '#ffffff'], ['#5b3a8c', '#ffd23f'], ['#b5541c', '#fff1d6'], ['#3c5a14', '#e8e2b0']];
+  function flCrest(f) {
+    const [c, d] = FL_PAL[(f && f.color != null ? f.color : 0) % FL_PAL.length];
+    const t = flInit(f ? f.name : '?').toUpperCase().slice(0, 3);
+    return `<svg viewBox="0 0 48 48"><path d="M24 4l16 6v12c0 11-7 18-16 22C15 40 8 33 8 22V10z" fill="${c}" stroke="${d}" stroke-width="2.5" stroke-linejoin="round"/><text x="24" y="${t.length > 2 ? 29 : 30}" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="900" font-size="${t.length > 2 ? 12.5 : 15}" fill="${d}">${esc(t)}</text></svg>`;
+  }
   const flightLink = f => APP_URL + '#/f/' + f.code;
   const flightCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
   const flInit = n => { const w = n.trim().split(/\s+/).filter(x => x.length > 2 || /\d/.test(x)); return n.trim().length <= 4 ? n.trim() : (w.length > 1 ? w[0][0] + w[1][0] : n.trim().slice(0, 2)).toUpperCase(); };
@@ -341,7 +348,7 @@
     return f;
   }
   function viewFlights() {
-    const list = S.flights.map(f => `<a class="flcard" href="#/flight/${f.id}"><span class="flav">${esc(flInit(f.name))}</span><div><b>${esc(f.name)}</b><small>${(f.members || []).length} membre${(f.members || []).length > 1 ? 's' : ''}</small></div>${f.admin_device === S.me.deviceId ? '<span class="fltag">ADMIN</span>' : ''}<span class="hchev">›</span></a>`).join('');
+    const list = S.flights.map(f => `<a class="flcard" href="#/flight/${f.id}"><span class="flav2">${flCrest(f)}</span><div><b>${esc(f.name)}</b><small>${(f.members || []).length} membre${(f.members || []).length > 1 ? 's' : ''}</small></div>${f.admin_device === S.me.deviceId ? '<span class="fltag">ADMIN</span>' : ''}<span class="hchev">›</span></a>`).join('');
     $app.innerHTML = topbar('Mes Flights', '#/profile') + `<main class="form">
       ${list || '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Tu n\'es dans aucun Flight.</p><small>Un Flight, c\'est ta bande de golf : vous voyez vos parties, vos scores en direct et le Fly Tour entre vous seulement.</small></div>'}
       <button class="btn big full" id="fl-new">＋ Créer un Flight</button>
@@ -351,7 +358,7 @@
     $app.querySelector('#fl-new').onclick = async () => {
       const n = await fwPrompt('Nom du Flight :'); if (!n || !n.trim()) return;
       if (!remoteOn() || !navigator.onLine) return fwAlert('Il faut être connecté pour créer un Flight.');
-      const f = { id: uid(), name: n.trim().slice(0, 30), code: flightCode(), admin_device: S.me.deviceId, created_at: new Date().toISOString() };
+      const f = { id: uid(), name: n.trim().slice(0, 30), code: flightCode(), color: Math.floor(Math.random() * FL_PAL.length), admin_device: S.me.deviceId, created_at: new Date().toISOString() };
       const { error } = await sb.from('flights').insert(f);
       if (error) return fwAlert('Création impossible, réessaie.');
       await sb.from('flight_members').upsert({ flight_id: f.id, device_id: S.me.deviceId, name: S.me.name });
@@ -438,7 +445,7 @@
   // copains classés par Flight (chacun une seule fois), puis les autres partenaires (invités déjà rencontrés)
   function copainGroups(list) {
     const used = new Set(), out = [];
-    S.flights.forEach(f => { const devs = new Set((f.members || []).map(x => x.device_id)); const ms = list.filter(m => m.device_id && devs.has(m.device_id) && !used.has(m.key)); ms.forEach(m => used.add(m.key)); if (ms.length) out.push([f.name, ms, 1]); });
+    S.flights.forEach(f => { const devs = new Set((f.members || []).map(x => x.device_id)); const ms = list.filter(m => m.device_id && devs.has(m.device_id) && !used.has(m.key)); ms.forEach(m => used.add(m.key)); if (ms.length) out.push([f.name, ms, f]); });
     const rest = list.filter(m => !used.has(m.key)); if (rest.length) out.push([out.length ? 'Déjà joué avec' : 'Les copains', rest]);
     return out;
   }
@@ -1104,7 +1111,7 @@
       ${!S.flights.length && S.me.name ? `<a class="sinvite" href="#/flights"><span><i class="crest">${FW_IC('crest')}</i></span><div><b>Rejoins ou crée ton Flight</b><small>Ta bande de golf : vos parties, le Live et le Fly Tour entre vous.</small></div><span class="hchev">›</span></a>` : ''}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
-      <div class="invrow">${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('crest')}</i><div><b>Inviter</b><small>dans mon Flight</small></div></button>` : ''}<button class="invbar" data-act="app"><i>${FW_IC('invite')}</i><div><b>Partager</b><small>l'appli Fly18</small></div></button></div>
+      <div class="invrow">${S.me.season ? `<button class="invbar" data-act="invite"><i>${S.flights.length ? flCrest(S.flights[0]) : FW_IC('crest')}</i><div><b>Inviter</b><small>dans mon Flight</small></div></button>` : ''}<button class="invbar" data-act="app"><i>${FW_IC('invite')}</i><div><b>Partager</b><small>l'appli Fly18</small></div></button></div>
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
     </main>`;
     updateSyncBadge();
@@ -1160,7 +1167,7 @@
         ${st.format === 'stableford' || st.format === 'match' ? '' : `<label>Croix (balle ramassée)<select id="n-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(st.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>`}
         <h2>Joueurs</h2>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
-        ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + FW_IC('crest') + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint">Touche un copain pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
+        ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint">Touche un copain pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint">Tes potes peuvent aussi se rajouter eux-mêmes avec le lien d'invitation, une fois la partie créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
@@ -2277,7 +2284,7 @@
       const det = mine ? `<h2>Mes points</h2>${S.me.index !== '' && S.me.index != null ? `<p class="hint" style="margin:-4px 0 8px">Compté en net avec ton index (${esc(String(S.me.index))}) : tes coups reçus sont déduits trou par trou. Un bogey brut sur un trou où tu reçois 1 coup = un par net. Index plafonné à 36 pour le Fly Tour.</p>` : ''}<div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
       const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné (plafonné à 36), sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Seules les parties terminées comptent. Chaque mois est une étape : remise à zéro le 1er, et le premier remporte la <b>Fly Cup</b>. La saison cumule toutes les étapes de l'année.</p></details>`;
       const tf = tourFlight();
-      const fsel = S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(f => `<button data-tf="${f.id}" class="${tf && f.id === tf.id ? 'on' : ''}"><i class="crest">${FW_IC('crest')}</i>${esc(f.name)}</button>`).join('')}</div>` : (tf ? `<p class="flname"><i class="crest">${FW_IC('crest')}</i>${esc(tf.name)}</p>` : '');
+      const fsel = S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(f => `<button data-tf="${f.id}" class="${tf && f.id === tf.id ? 'on' : ''}"><i class="crest">${flCrest(f)}</i>${esc(f.name)}</button>`).join('')}</div>` : (tf ? `<p class="flname"><i class="crest">${flCrest(tf)}</i>${esc(tf.name)}</p>` : '');
       $app.querySelector('main').innerHTML = fsel + `<div class="seg statseg">${tabs.map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`).join('')}</div>${podium}${list}${det}${rules}`;
       $app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => viewSeason(b.dataset.st));
       $app.querySelectorAll('[data-tf]').forEach(b => b.onclick = () => { S.me.tourFlight = b.dataset.tf; saveMe(); LS.set('fw_season', null); $app.querySelector('main').innerHTML = '<p class="muted">Calcul du classement…</p>'; refreshSeason().then(d => { if (location.hash === '#/classement') draw(d); }); });
@@ -2369,7 +2376,7 @@
     const el = document.createElement('div'); el.className = 'modal';
     const draw = () => {
       let qr = ''; try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(flightLink(f)); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
-      el.innerHTML = `<div class="sheet invite"><h2 class="rgh"><i class="crest">${FW_IC('crest')}</i>Inviter dans mon Flight</h2>
+      el.innerHTML = `<div class="sheet invite"><h2 class="rgh"><i class="crest">${flCrest(f)}</i>Inviter dans mon Flight</h2>
       ${S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(x => `<button data-fs="${x.id}" class="${x.id === f.id ? 'on' : ''}">${esc(x.name)}</button>`).join('')}</div>` : ''}
       <p class="muted">Il scanne le QR code : Fly18 s'installe et il rejoint le Flight <b>${esc(f.name)}</b>. S'il a déjà l'appli, envoie-lui simplement le code.</p>
       <div class="qrbox">${qr || '<p class="muted">QR code indisponible hors connexion</p>'}</div>
