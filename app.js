@@ -970,7 +970,7 @@
       const holesDone = Math.max(0, ...g.players.map(p => Object.keys(scoresOf(g)[p.id] || {}).length).concat(teamPlayers(g).map(t => 0)));
       return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${indivPlayers(g).map(x => led(x.device_id) + esc(x.name)).join(', ')}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead ? 'En tête : ' + esc(lead.name) + ' (' + esc(lead.label) + ')' : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
     };
-    $app.innerHTML = topbar('Fairway', null, 'me') + `<main>
+    $app.innerHTML = topbar('Fairway', null, 'me') + `<main class="home">
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div id="wx" class="wx${open.length || potes.length ? ' compact' : ''}" hidden></div>
       <div id="online"></div>
@@ -982,7 +982,7 @@
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
       ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>QR code pour installer Fly18 ou rejoindre ta partie</small></div><span>›</span></button>` : ''}
-      <div class="copy">© ${new Date().getFullYear()} Fly18</div>
+      <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
