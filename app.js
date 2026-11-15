@@ -970,13 +970,13 @@
       const holesDone = Math.max(0, ...g.players.map(p => Object.keys(scoresOf(g)[p.id] || {}).length).concat(teamPlayers(g).map(t => 0)));
       return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${indivPlayers(g).map(x => led(x.device_id) + esc(x.name)).join(', ')}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead ? 'En tête : ' + esc(lead.name) + ' (' + esc(lead.label) + ')' : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
     };
-    $app.innerHTML = topbar('Fairway', null, 'me') + `<main class="home">
+    $app.innerHTML = topbar('Fairway', null, 'me') + `<main class="home${open.length ? ' playing' : ''}">
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div id="wx" class="wx${open.length || potes.length ? ' compact' : ''}" hidden></div>
       <div id="online"></div>
       ${installBar()}
-      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.map(card).join('')}
+      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${potes.length ? '<h2>👥 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       ${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
