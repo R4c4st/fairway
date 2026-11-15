@@ -55,7 +55,7 @@
   if (!S.me.logo || !S.me.logoV2) { S.me.logo = 'pro_balle'; S.me.logoV2 = 1; }
   if (!S.me.logoV4) { S.me.logo = 'fly18'; S.me.logoV3 = 1; S.me.logoV4 = 1; }
   if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'fly18';
-  if (window.FW_PALETTES && !window.FW_PALETTES[S.me.color]) S.me.color = 'vert';
+  S.me.color = 'vert'; // palette unique
   const logoURL = () => window.fwLogoURL ? window.fwLogoURL(S.me.logo, S.me.color) : 'icon.svg';
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
@@ -2258,8 +2258,6 @@
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>🏆 Fly Tour<small>Le classement entre potes : une étape par mois, une Fly Cup au vainqueur (tes 4 meilleurs 9 trous)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>👥 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
-      <label>Couleur</label>
-      <div class="colors">${Object.entries(window.FW_PALETTES || {}).map(([k, p]) => `<button data-col="${k}" class="${S.me.color === k ? 'on' : ''}" title="${esc(p.name)}"><i style="background:linear-gradient(135deg,${p.g},${p.gd})"></i><small>${esc(p.name)}</small></button>`).join('')}</div>
       <label>Logo</label>
       <div class="logos">${Object.keys(window.FW_LOGOS || {}).map(k => `<button data-lg="${k}" class="${S.me.logo === k ? 'on' : ''}"><img src="${window.fwLogoURL(k, S.me.color)}" alt=""><small>${esc(window.FW_LOGO_NAMES[k])}</small></button>`).join('')}</div>
       <label>Apparence</label>
@@ -2289,7 +2287,6 @@
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
-    $app.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { S.me.color = b.dataset.col; saveMe(); applyTheme(); viewProfile(); });
     $app.querySelectorAll('[data-lg]').forEach(b => b.onclick = () => { S.me.logo = b.dataset.lg; saveMe(); applyTheme(); $app.querySelectorAll('[data-lg]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { S.me.theme = b.dataset.th; saveMe(); applyTheme(); $app.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelector('#p-xcap').onchange = e => { S.me.xcap = Number(e.target.value); saveMe(); toast('Croix = par + ' + S.me.xcap + ' pour tes prochaines parties'); };
