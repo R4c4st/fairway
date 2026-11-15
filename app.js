@@ -242,6 +242,7 @@
     if (p.eventType === 'DELETE') { g.events = g.events.filter(x => x.id !== e.id); saveGames(); liveRender(); return; }
     if (!g.events.some(x => x.id === e.id)) g.events.push(e);
     saveGames(); liveRender();
+    if (e.type === 'react') { if (!S.seen.has(e.id)) { markSeen(e.id); if (Date.now() - new Date(e.created_at || 0).getTime() < 120000) floatReaction(e); } return; }
     if (!S.seen.has(e.id)) eventPopup(g, e);
   }
 
@@ -512,7 +513,7 @@
     g.events = g.events || []; g.events.push(row); saveGames();
     markSeen(row.id);
     push({ t: 'upsert', table: 'events', row });
-    eventPopup(g, row);
+    if (row.type === 'react') floatReaction(row); else eventPopup(g, row);
   }
   function removeEvent(gid, id) {
     const g = S.games[gid]; g.events = (g.events || []).filter(e => e.id !== id); saveGames();
@@ -524,7 +525,7 @@
   const replayOpenGames = () => Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done' && myPlayer(g)).forEach(replayUnseen);
   function replayUnseen(g) {
     if (!g || !g.events) return;
-    const todo = g.events.filter(e => e.type !== 'tournee' && !S.seen.has(e.id)).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+    const todo = g.events.filter(e => e.type !== 'tournee' && e.type !== 'react' && !S.seen.has(e.id)).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
     if (!todo.length) return;
     const show = todo.slice(-6);
     todo.slice(0, -6).forEach(e => markSeen(e.id));
@@ -555,6 +556,138 @@
     document.body.appendChild(el);
     el.querySelector('a').onclick = () => el.remove(); el.querySelector('button').onclick = () => el.remove();
   }
+  /* ---------- Réactions en direct ---------- */
+  const REACTS = ['🔥', '😂', '👏', '😱', '🍺'];
+  function floatReaction(e) {
+    const el = document.createElement('div'); el.className = 'reactfloat';
+    el.style.left = (12 + Math.random() * 60) + '%';
+    el.innerHTML = `<span>${esc(e.label || '🔥')}</span><small>${esc(e.by_name || '')}</small>`;
+    document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+  }
+  let lastReact = 0;
+  function reactBar(g) {
+    return `<div class="reactbar" data-rg="${g.game.id}">${REACTS.map(r => `<button data-r="${r}">${r}</button>`).join('')}</div>`;
+  }
+  function bindReactBar(root) {
+    root.querySelectorAll('.reactbar [data-r]').forEach(b => b.onclick = () => {
+      if (Date.now() - lastReact < 1500) return; lastReact = Date.now();
+      const gid = b.closest('.reactbar').dataset.rg; if (!S.games[gid]) return;
+      addEvent(gid, { type: 'react', label: b.dataset.r, player_id: null, hole: null }); vibrate(20);
+    });
+  }
+
+  /* ---------- Trophées ---------- */
+  const TROPHIES = [
+    ['par1', '💪', 'Premier par', 'Faire un par', 'b'],
+    ['birdie1', '🐦', 'Premier birdie', 'Faire un birdie', 's'],
+    ['eagle', '🦅', 'Eagle', 'Faire un eagle', 'g'],
+    ['hio', '💥', 'Trou en un', 'Le Graal', 'g'],
+    ['serie3', '🔥', 'En feu', '3 pars (ou mieux) de suite', 's'],
+    ['s110', '🎯', 'Sous les 110', '18 trous en moins de 110', 'b'],
+    ['s100', '💯', 'Sous les 100', '18 trous en moins de 100', 's'],
+    ['s90', '🚀', 'Sous les 90', '18 trous en moins de 90', 'g'],
+    ['putt', '🏌️', 'Putter d\'or', '18 trous sans 3-putt (putts saisis)', 's'],
+    ['norouge', '🛡️', 'Jamais dans les rouges', '18 trous sans rouge', 'b'],
+    ['win1', '🏆', 'Première victoire', 'Gagner une partie', 's'],
+    ['win5', '👑', 'Patron', 'Gagner 5 parties', 'g'],
+    ['nice5', '⭐', 'Showman', 'Recevoir 5 Nice shots', 's'],
+    ['games10', '📅', 'Fidèle', 'Jouer 10 parties', 'b'],
+    ['rouge5', '🍺', 'Abonné aux tournées', '5 rouges pas passés', 'b']
+  ];
+  function myTrophies() {
+    const got = {};
+    const mine = Object.values(S.games).filter(g => !g.follow && myPlayer(g));
+    let wins = 0, nice = 0, rouges = 0, done = 0;
+    mine.forEach(g => {
+      const me = myPlayer(g); const course = gameCourse(g);
+      if (g.game.status === 'done') done++;
+      if (wonGame(g) === true) wins++;
+      rouges += rougesIn(g);
+      nice += (g.events || []).filter(e => e.player_id === me.id && e.type !== 'rouge' && e.type !== 'react' && e.type !== 'tournee').length;
+      if (isTeamGame(g)) return;
+      const sc = scoresOf(g)[me.id] || {};
+      const holes = C.holesFor(g.game.mode, course.holes.length);
+      let run = 0, tot = 0, all = true, pick = false, puttsOk = true, puttsAll = true;
+      holes.forEach(h => {
+        const c = sc[h] || {}; const par = course.holes[h - 1].par;
+        if (c.pickup) { pick = true; run = 0; return; }
+        if (c.strokes == null) { all = false; run = 0; return; }
+        const d = c.strokes - par; tot += c.strokes;
+        if (d === 0) got.par1 = 1;
+        if (d === -1) got.birdie1 = 1;
+        if (c.strokes === 1) got.hio = 1; else if (d <= -2) got.eagle = 1;
+        run = d <= 0 ? run + 1 : 0; if (run >= 3) got.serie3 = 1;
+        if (c.putts == null) puttsAll = false; else if (c.putts >= 3) puttsOk = false;
+      });
+      if (holes.length === 18 && all && !pick) {
+        if (tot < 110) got.s110 = 1; if (tot < 100) got.s100 = 1; if (tot < 90) got.s90 = 1;
+        if (puttsAll && puttsOk) got.putt = 1;
+      }
+      if (holes.length === 18 && all && (me.tee || g.game.tee) !== 'rouge' && rougesIn(g) === 0) got.norouge = 1;
+    });
+    if (wins >= 1) got.win1 = 1; if (wins >= 5) got.win5 = 1;
+    if (nice >= 5) got.nice5 = 1; if (done >= 10) got.games10 = 1; if (rouges >= 5) got.rouge5 = 1;
+    return got;
+  }
+  const medal = (t, on, big) => `<span class="medal ${on ? 'm-' + t[4] : 'm-off'}${big ? ' big' : ''}"><i>${on ? t[1] : '🔒'}</i></span>`;
+  function trophiesTile() {
+    const got = myTrophies(); const n = TROPHIES.filter(t => got[t[0]]).length;
+    return `<div class="troph"><div class="trhead"><b>Trophées</b><span class="trmini">${TROPHIES.filter(t => got[t[0]]).slice(-6).map(t => medal(t, true)).join('')}</span><span>${n}/${TROPHIES.length}</span><span class="hchev">›</span></div>
+      <div class="trgrid">${TROPHIES.map(t => `<div class="tr ${got[t[0]] ? 'on' : ''}">${medal(t, got[t[0]])}<b>${esc(t[2])}</b><small>${esc(t[3])}</small></div>`).join('')}</div></div>`;
+  }
+  function checkTrophies() {
+    const got = myTrophies(); const seen = new Set(LS.get('fw_troph', []));
+    const fresh = TROPHIES.filter(t => got[t[0]] && !seen.has(t[0]));
+    if (!fresh.length) return;
+    LS.set('fw_troph', TROPHIES.filter(t => got[t[0]]).map(t => t[0]));
+    fresh.slice(0, 3).forEach((t, i) => setTimeout(() => trophyPopup(t), i * 4200));
+    if (fresh.length > 3) toast('+' + (fresh.length - 3) + ' autres trophées dans tes Stats 🏆');
+  }
+  function trophyPopup(t) {
+    const el = document.createElement('div'); el.className = 'pop';
+    const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#ffd400', '#f7c531', '#fff', '#22a052'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
+    el.innerHTML = `<div class="conf">${conf}</div><div class="popcard">${medal(t, true, true)}<div class="popsub">Nouveau trophée</div><div class="poptitle">${esc(t[2])}</div><div class="popsub">${esc(t[3])}</div></div>`;
+    document.body.appendChild(el); vibrate([40, 60, 40]);
+    const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 300); };
+    el.onclick = close; setTimeout(close, 4000);
+  }
+
+  /* ---------- Index estimé (méthode WHS simplifiée) ---------- */
+  function estimatedIndex() {
+    const diffs = []; let approx = false;
+    Object.values(S.games).filter(g => !g.follow && g.game.status === 'done' && myPlayer(g) && !isTeamGame(g))
+      .sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || '')).forEach(g => {
+        if (diffs.length >= 20) return;
+        const me = myPlayer(g); const course = gameCourse(g);
+        const holes = C.holesFor(g.game.mode, course.holes.length); if (holes.length !== 18) return;
+        const sc = scoresOf(g)[me.id] || {}; if (holes.some(h => !sc[h] || (sc[h].strokes == null && !sc[h].pickup))) return;
+        const tee = course.tees.find(t => t.id === (me.tee || g.game.tee)) || course.tees[0] || {};
+        const par = course.holes.reduce((a, h) => a + h.par, 0);
+        const cr = tee.sss || par; if (!tee.sss) approx = true;
+        const slope = tee.slope || 113;
+        const idx = Number(S.me.index);
+        const ch = S.me.index !== '' && !isNaN(idx) ? C.playingHandicap(idx, tee, course, g.game.mode) : null;
+        const recv = ch != null ? C.strokesPerHole(ch, course, g.game.mode) : null;
+        let ags = 0;
+        holes.forEach(h => { const c = sc[h]; const hp = course.holes[h - 1].par; const cap = recv ? hp + 2 + (recv[h] || 0) : hp + 5; ags += c.pickup ? cap : Math.min(c.strokes, cap); });
+        diffs.push(Math.round((113 / slope) * (ags - cr) * 10) / 10);
+      });
+    const n = diffs.length; if (n < 3) return { n, value: null };
+    const T = { 3: [1, -2], 4: [1, -1], 5: [1, 0], 6: [2, -1], 7: [2, 0], 8: [2, 0], 9: [3, 0], 10: [3, 0], 11: [3, 0], 12: [4, 0], 13: [4, 0], 14: [4, 0], 15: [5, 0], 16: [5, 0], 17: [6, 0], 18: [6, 0], 19: [7, 0], 20: [8, 0] }[n];
+    const best = diffs.slice().sort((a, b) => a - b).slice(0, T[0]);
+    let v = best.reduce((a, b) => a + b, 0) / best.length + T[1];
+    v = Math.max(-5, Math.min(54, Math.round(v * 10) / 10));
+    return { n, value: v, approx };
+  }
+  function indexCard() {
+    const r = estimatedIndex();
+    const dec = S.me.index !== '' && S.me.index != null ? String(S.me.index).replace('.', ',') : null;
+    if (r.value == null) return `<div class="idxcard"><div><small>Index estimé</small><b>–</b></div><p>Encore ${3 - r.n} carte${3 - r.n > 1 ? 's' : ''} complète${3 - r.n > 1 ? 's' : ''} de 18 trous pour l'estimer.</p></div>`;
+    const v = String(r.value).replace('.', ',');
+    const delta = dec != null ? Math.round((r.value - Number(S.me.index)) * 10) / 10 : null;
+    return `<div class="idxcard"><div><small>Index estimé</small><b>${v}</b></div><p>Sur tes ${r.n} dernière${r.n > 1 ? 's' : ''} carte${r.n > 1 ? 's' : ''} de 18 trous${dec != null ? ` · déclaré ${dec} <span class="${delta > 0 ? 'up' : 'down'}">(${delta > 0 ? '+' : ''}${String(delta).replace('.', ',')})</span>` : ''}<br><small>${r.approx ? 'Approximatif : SSS manquant sur un parcours · ' : ''}indicatif, pas l'index officiel FFGolf</small></p></div>`;
+  }
+
   function shotSheet(g, hole) {
     const st = { pid: (myPlayer(g) || g.players[0] || {}).id, type: null };
     const el = document.createElement('div'); el.className = 'modal';
@@ -604,6 +737,7 @@
 
   /* ---------- Fin de partie : la tournée ---------- */
   function celebrate(gid) {
+    setTimeout(checkTrophies, 6000);
     const g = S.games[gid]; if (!g) return;
     const course = gameCourse(g);
     const pay = gamePayers(g);
@@ -978,7 +1112,8 @@
     if (spect && (S.tab === 'trou' || S.tab === 'carte')) S.tab = 'classement';
     const tabs = spect ? [['classement', 'Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
     $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="aatg ${S.me.big ? 'on' : ''}" id="g-big" aria-label="Taille du texte"><small>A</small>A</button>`) +
-      `<nav class="tabs">${tabs.map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"></main>`;
+      `<nav class="tabs">${tabs.map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"${spect ? ' class="withreact"' : ''}></main>${spect && g.game.status !== 'done' ? reactBar(g) : ''}`;
+    bindReactBar($app);
     updateSyncBadge();
     $app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; $app.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('on', x === b)); renderGameBody(); });
     if (!spect) {
@@ -1317,7 +1452,7 @@
         const lines = pay.last.map(x => `<li>${FW_IC('tournee')} <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
         return `<h2><button class="beerbtn" id="b-beer" aria-label="Revoir l'animation">${FW_IC('tournee')}</button> Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}`;
       })()}
-      ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
+      ${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'react').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'react').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
       <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée par + ${C.xcapOf(g.game)}${C.noHcp(g.game) ? '' : ' (+ coups reçus)'} en stroke play.</p>
       <div class="row2"><button class="btn ghost" id="b-share">Partager le résultat</button>${g.game.status === 'done' || spect ? '' : '<button class="btn" id="b-end">Terminer</button>'}</div>
       <button class="btn ghost full danger" id="b-del">${spect ? '👋 Ne plus suivre' : '🗑️ Supprimer la partie'}</button>`;
@@ -1405,7 +1540,7 @@
         const course = g.game.course; const holesAll = C.holesFor(g.game.mode, course.holes.length);
         const rows = standingsLite(g);
         const done = Math.max(0, ...g.players.map(p => holesAll.filter(h => (g.scores[p.id] || {})[h]).length));
-        const lastEv = g.events.filter(e => e.type !== 'tournee').slice(-1)[0];
+        const lastEv = g.events.filter(e => e.type !== 'tournee' && e.type !== 'react').slice(-1)[0];
         const evTxt = lastEv ? (lastEv.type === 'rouge' ? FW_IC('tournee') + ' ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
         const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
         const fin = g.game.status === 'done';
@@ -1766,6 +1901,8 @@
       <div class="bars">${[['Birdie et mieux', birdies, 'birdie'], ['Par', pars, 'par'], ['Bogey', bogeys, 'bogey'], ['Double et plus', dbl, 'dbl'], ['Ramassées', pick, 'pick']].map(([l, n, c]) => `<div class="bar"><span>${l}</span><i class="${c}" style="width:${holesN ? n * 100 / holesN : 0}%"></i><b>${pct(n)}</b></div>`).join('')}</div>`;
     $app.innerHTML = topbar('Mes stats', '#/') + `<main>
       ${palmares}
+      ${indexCard()}
+      ${trophiesTile()}
       <div class="seg statseg">${[['last', 'Dernière partie'], ['avg', 'Moyenne'], ['best', 'Meilleure']].map(([k, l]) => `<button data-sm="${k}" class="${mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       ${body}
       ${histByMonth()}
@@ -1773,6 +1910,7 @@
     updateSyncBadge();
     $app.querySelectorAll('[data-sm]').forEach(b => b.onclick = () => viewStats(b.dataset.sm));
     $app.querySelectorAll('[data-mo]').forEach(t => t.querySelector('.mohead').onclick = () => t.classList.toggle('open'));
+    const tr = $app.querySelector('.troph'); if (tr) tr.querySelector('.trhead').onclick = () => tr.classList.toggle('open');
     const ha = $app.querySelector('.histall'); if (ha) ha.querySelector('.hahead').onclick = () => ha.classList.toggle('open');
     bindHist($app);
   }
@@ -2001,7 +2139,7 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullMyGames().then(pullFollowGames).then(scheduleBackup).then(replayOpenGames);
+    pullMyGames().then(pullFollowGames).then(scheduleBackup).then(replayOpenGames).then(() => setTimeout(checkTrophies, 2500));
     startPresence();
     pullCopains();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });

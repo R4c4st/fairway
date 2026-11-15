@@ -481,6 +481,39 @@ html[data-theme=dark] .shotgrid button.on{background:#123222}
 .dlgbtns .btn{margin:0;width:100%}
 .dlgbtns .btn.danger{background:var(--red);color:#fff;border-color:var(--red);margin:0}
 html[data-theme=dark] .sheet.dlg{background:var(--card)}
+/* réactions */
+.reactbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:60;display:flex;gap:6px;background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:6px 8px;box-shadow:0 6px 20px #0003}
+.reactbar button{border:0;background:none;font-size:28px;width:46px;height:46px;border-radius:50%;cursor:pointer;transition:transform .12s}
+.reactbar button:active{transform:scale(1.35)}
+main.withreact{padding-bottom:90px}
+.reactfloat{position:fixed;bottom:90px;z-index:80;display:flex;flex-direction:column;align-items:center;pointer-events:none;animation:rfly 2.6s ease-out forwards}
+.reactfloat span{font-size:46px;line-height:1}.reactfloat small{background:#000a;color:#fff;border-radius:8px;padding:1px 6px;font-size:11px;font-weight:700;margin-top:2px}
+@keyframes rfly{0%{transform:translateY(0) scale(.6);opacity:0}12%{transform:translateY(-20px) scale(1.15);opacity:1}100%{transform:translateY(-55vh) scale(1);opacity:0}}
+/* trophées */
+.medal{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;flex:none;position:relative}
+.medal i{font-style:normal;font-size:22px;width:34px;height:34px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 3px #0003}
+.medal.m-g{background:conic-gradient(from 200deg,#b37a00,#ffe680,#d9a300,#fff3a8,#b37a00)}
+.medal.m-s{background:conic-gradient(from 200deg,#8d97a3,#f2f4f7,#a8b2bd,#ffffff,#8d97a3)}
+.medal.m-b{background:conic-gradient(from 200deg,#8a4b1f,#e8a26b,#a8602c,#f5c49a,#8a4b1f)}
+.medal.m-off{background:var(--bd)}.medal.m-off i{filter:grayscale(1);opacity:.5;font-size:16px}
+.medal.big{width:96px;height:96px;margin:0 auto 6px}.medal.big i{width:76px;height:76px;font-size:44px}
+.troph{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin:12px 0;overflow:hidden}
+.trhead{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+.trhead b{font-size:16px;color:var(--tx)}.trhead>span{color:var(--mu);font-size:14px}
+.trmini{flex:1;display:flex;gap:2px;overflow:hidden}.trmini .medal{width:28px;height:28px}.trmini .medal i{width:22px;height:22px;font-size:13px}
+.troph.open .hchev{transform:rotate(90deg)}
+.trgrid{display:none;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 10px 12px}
+.troph.open .trgrid{display:grid}
+.tr{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;padding:8px 2px;border-radius:12px;background:var(--bg)}
+.tr b{font-size:12.5px;line-height:1.15;color:var(--tx)}.tr small{font-size:10.5px;color:var(--mu);line-height:1.2}
+.tr:not(.on) b{color:var(--mu)}
+/* index estimé */
+.idxcard{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,var(--gl),var(--card));border:1px solid var(--bd);border-radius:14px;padding:12px 14px;margin:12px 0 0}
+.idxcard>div{display:flex;flex-direction:column;align-items:center;min-width:76px}
+.idxcard>div small{font-size:11px;color:var(--mu);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.idxcard>div b{font-size:32px;font-weight:900;color:var(--g);line-height:1.1}
+.idxcard p{margin:0;font-size:13.5px;color:var(--tx);line-height:1.35}.idxcard p small{color:var(--mu);font-size:11.5px}
+.idxcard .up{color:var(--red)}.idxcard .down{color:#16a34a}
 </style>
 </head>
 <body>
