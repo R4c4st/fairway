@@ -611,14 +611,14 @@ main.home .hcard{padding:5px 12px}main.home .hdate{min-width:34px;padding:3px 0}
 .tile.new,.tile.live{overflow:hidden;background:linear-gradient(135deg,#239a4c 0%,#1b7a3d 45%,#156a33 70%,#1e8a45 100%)!important;border:1px solid #14632f!important;color:#fff!important;box-shadow:inset 0 1px 0 #ffffff33,0 2px 8px #14532d22}
 .tile.new>*,.tile.live>*{position:relative;z-index:1}
 .tile.new:before,.tile.live:before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 20% 15%,#ffffff2e 0,#fff0 40%)}
-.tile.new:after,.tile.live:after{content:'';position:absolute;top:-30%;bottom:-30%;left:-60%;width:45%;z-index:0;pointer-events:none;background:linear-gradient(100deg,#fff0 0%,#ffffff40 45%,#ffffff26 55%,#fff0 100%);transform:skewX(-18deg);animation:trshine 4.5s ease-in-out infinite}
-.tile.trt:after{animation-delay:.25s}.tile.live:after{animation-delay:.5s}
+.tile.new:after,.tile.live:after{content:'';position:absolute;top:-30%;bottom:-30%;left:-60%;width:45%;z-index:0;pointer-events:none;background:linear-gradient(100deg,#fff0 0%,#ffffff40 45%,#ffffff26 55%,#fff0 100%);transform:skewX(-18deg);animation:trshine 4.5s ease-in-out var(--sd,0s) infinite}
+.tile.trt:after{animation-delay:var(--sd,.25s)}.tile.live:after{animation-delay:var(--sd,.5s)}
 .tile.live b{color:#fff!important}
 .tile.live #livecount{z-index:2}
 html[data-theme=dark] .tile.new,html[data-theme=dark] .tile.live{background:linear-gradient(135deg,#1d7a3e,#14532d 60%,#196b37)!important;border-color:#0f3f22!important}
 @media (prefers-reduced-motion:reduce){.tile.new:after,.tile.live:after{display:none}}
 .sstrip{position:relative;overflow:hidden}.sstrip>*{position:relative;z-index:1}
-.sstrip:after{content:'';position:absolute;top:-60%;bottom:-60%;left:-60%;width:30%;z-index:0;pointer-events:none;background:linear-gradient(100deg,#fff0 0%,#ffffff33 45%,#ffffff1f 55%,#fff0 100%);transform:skewX(-18deg);animation:trshine 4.5s ease-in-out .8s infinite}
+.sstrip:after{content:'';position:absolute;top:-60%;bottom:-60%;left:-60%;width:30%;z-index:0;pointer-events:none;background:linear-gradient(100deg,#fff0 0%,#ffffff33 45%,#ffffff1f 55%,#fff0 100%);transform:skewX(-18deg);animation:trshine 4.5s ease-in-out var(--sd,.8s) infinite}
 @media (prefers-reduced-motion:reduce){.sstrip:after{display:none}}
 </style>
 </head>
