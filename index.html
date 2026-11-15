@@ -612,6 +612,11 @@ html[data-theme=dark] .tile.trt{background:linear-gradient(135deg,#3a2f0e,#5a461
 @keyframes encp{50%{opacity:.3}}
 main.home{gap:10px}main.home>*:not(.copy){margin-top:0!important;margin-bottom:0!important}main.home>:empty{display:none}
 main.home #sstrip .sstrip,main.home .hcard,main.home .invbar{margin:0}main.home .copy{margin-top:auto;padding-top:4px}
+@media (max-height:760px){.wx{padding:6px 12px}.wx .wx-hint{display:none}.wx .wx-row{gap:10px}
+.wx .wx-ic svg{width:34px;height:34px}.wx .wx-main{flex-direction:row;align-items:baseline;gap:8px}.wx .wx-main b{font-size:22px}
+.wx .wx-side{flex-direction:row;gap:10px}.wx .wx-side small{font-size:12px}}
+@media (max-width:380px){.wx.compact .wx-main span{display:none}.wx.compact .wx-side{gap:7px}}
+@media (max-width:380px) and (max-height:760px){.wx .wx-main span{display:none}.wx .wx-side{gap:7px}}
 </style>
 </head>
 <body>
