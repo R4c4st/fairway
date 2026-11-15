@@ -437,8 +437,16 @@
     // nettoyage : parties suivies terminées depuis plus de 2 jours
     Object.values(S.games).forEach(g => { if (g.follow && ((!S.me.follow && !g.watch) || (g.game.status === 'done' && Date.now() - new Date(g.game.play_date + 'T23:59').getTime() > 2 * 864e5))) delete S.games[g.game.id]; });
     saveGames();
+    // parties suivies supprimées sur le serveur (ex. partie test effacée par son créateur) : on les retire aussi ici
+    const followed = Object.values(S.games).filter(g => g.follow).map(g => g.game.id);
+    if (remoteOn() && navigator.onLine && followed.length) {
+      try {
+        const { data, error } = await sb.from('games').select('id').in('id', followed);
+        if (!error && data) { const alive = new Set(data.map(r => r.id)); followed.forEach(id => { if (!alive.has(id)) delete S.games[id]; }); saveGames(); }
+      } catch (e) { }
+    }
     const ids = followIds();
-    if (!remoteOn() || !ids.length) { subscribeMe(); return; }
+    if (!remoteOn() || !ids.length) { subscribeMe(); if (location.hash === '' || location.hash === '#/') viewHome(); return; }
     try {
       const since = new Date(Date.now() - 2 * 864e5).toISOString();
       const { data } = await sb.from('players').select('game_id, created_at').in('device_id', ids).gte('created_at', since);
