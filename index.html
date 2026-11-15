@@ -571,25 +571,25 @@ html[data-theme=dark] .tile.trt{background:#2a2410;border-color:#6b5512;color:#f
 .wxs-moon,.wxs-cloudn,.wxs-storm{color:#f1f4f8}.wxs-moon small,.wxs-cloudn small,.wxs-storm small,.wxs-moon span,.wxs-cloudn span,.wxs-storm span,.wxs-moon .wx-hint,.wxs-cloudn .wx-hint,.wxs-storm .wx-hint{color:#d6deea!important}
 .wxs-moon b,.wxs-cloudn b,.wxs-storm b{color:#fff!important}
 .wxs-rain .wx-hint,.wxs-rain small{color:#3d4b59}
-.fx-sun{right:-34px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#fff7c2 0,#ffd54a 35%,#ffd54a00 70%);animation:fxpulse 4s ease-in-out 2 alternate}
+.fx-sun{right:-34px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#fff7c2 0,#ffd54a 35%,#ffd54a00 70%);animation:fxpulse 6s ease-in-out infinite alternate}
 .fx-sun.sm{right:-20px;top:-50px;width:120px;height:120px;opacity:.8}
 .fx-moon{right:22px;top:12px;width:34px;height:34px;border-radius:50%;box-shadow:-9px 4px 0 0 #f4e7b4;opacity:.9}
-.fx-star{width:2px;height:2px;border-radius:50%;background:#fff;animation:fxtw 1.6s ease-in-out 3 alternate}
-.fx-cloud{width:90px;height:30px;border-radius:30px;background:#fff;opacity:.55;animation:fxdrift 14s ease-in-out 1 both}
+.fx-star{width:2px;height:2px;border-radius:50%;background:#fff;animation:fxtw 3s ease-in-out infinite alternate}
+.fx-cloud{width:90px;height:30px;border-radius:30px;background:#fff;opacity:.55;animation:fxdrift 30s ease-in-out infinite alternate}
 .fx-cloud:before,.fx-cloud:after{content:'';position:absolute;background:inherit;border-radius:50%}.fx-cloud:before{width:40px;height:40px;left:14px;top:-18px}.fx-cloud:after{width:30px;height:30px;left:44px;top:-12px}
 .wxs-cloud .fx-cloud{background:#fff;opacity:.6}.wxs-cloudn .fx-cloud{background:#8193b5;opacity:.35}.wxs-fog .fx-cloud{opacity:.4}
-.fx-fog{left:-10%;right:-10%;height:22px;top:40%;background:linear-gradient(90deg,#fff0,#fff9,#fff0);filter:blur(3px);animation:fxfog 9s ease-in-out 1 both}.fx-fog.b{top:68%;animation-direction:reverse}
-.fx-drop{top:-20px;width:1.5px;height:16px;background:linear-gradient(#fff0,#5b7690);opacity:.55;transform:rotate(12deg);animation:fxrain .9s linear 4 both}
+.fx-fog{left:-10%;right:-10%;height:22px;top:40%;background:linear-gradient(90deg,#fff0,#fff9,#fff0);filter:blur(3px);animation:fxfog 20s ease-in-out infinite alternate}.fx-fog.b{top:68%;animation-direction:reverse}
+.fx-drop{top:-20px;width:1.5px;height:16px;background:linear-gradient(#fff0,#5b7690);opacity:.4;transform:rotate(12deg);animation:fxrain 1.4s linear infinite both}
 .wxs-storm .fx-drop{background:linear-gradient(#fff0,#c9d5e6)}
-.fx-flash{inset:0;background:#fff;opacity:0;animation:fxflash 3.5s 1s 2}
-.fx-flake{top:-8px;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 2px #9fb4c9;animation:fxsnow 4s linear 2 both}
+.fx-flash{inset:0;background:#fff;opacity:0;animation:fxflash 13s 2s infinite}
+.fx-flake{top:-8px;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 2px #9fb4c9;animation:fxsnow 7s linear infinite both}
 @keyframes fxpulse{to{transform:scale(1.08);opacity:.85}}
 @keyframes fxtw{from{opacity:.2}to{opacity:1}}
-@keyframes fxdrift{from{margin-left:-14px}to{margin-left:14px}}
+@keyframes fxdrift{from{margin-left:-24px}to{margin-left:24px}}
 @keyframes fxfog{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
 @keyframes fxrain{from{transform:translate(0,0) rotate(12deg)}to{transform:translate(-30px,190px) rotate(12deg)}}
 @keyframes fxsnow{from{transform:translate(0,0)}to{transform:translate(12px,190px)}}
-@keyframes fxflash{0%,88%,100%{opacity:0}90%{opacity:.55}92%{opacity:0}94%{opacity:.35}}
+@keyframes fxflash{0%,95%,100%{opacity:0}96%{opacity:.45}97%{opacity:0}98%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.wx-fx i{animation:none!important}}
 .top{background-image:url(turf.webp)!important;background-size:200px 200px!important;background-blend-mode:overlay}
 .top{background-color:var(--gd)!important}
@@ -599,6 +599,13 @@ html[data-theme=dark] .tile.trt{background:#2a2410;border-color:#6b5512;color:#f
 .wx.compact .wx-side{flex-direction:row;gap:10px}.wx.compact .wx-side small{font-size:12px}
 main.home{display:flex;flex-direction:column;min-height:calc(100dvh - 64px - env(safe-area-inset-top));padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}main.home>.tiles,main.home>.row3{flex:none}
 .copy{font-size:11px;color:var(--mu);opacity:.7;margin:auto 2px 0;padding-top:14px;letter-spacing:.02em}
+.tile.trt{overflow:hidden;background:linear-gradient(135deg,#fff8dc 0%,#ffe9a6 45%,#fff6d6 60%,#f9dc85 100%)!important;border-color:#e8b931!important;box-shadow:inset 0 1px 0 #fff9,0 2px 8px #d9a00022}
+.tile.trt>*{position:relative;z-index:1}
+.tile.trt:after{content:'';position:absolute;top:-30%;bottom:-30%;left:-60%;width:45%;z-index:0;pointer-events:none;background:linear-gradient(100deg,#fff0 0%,#fff8 45%,#ffe58a99 55%,#fff0 100%);transform:skewX(-18deg);animation:trshine 4.5s ease-in-out infinite}
+.tile.trt:before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(circle at 20% 15%,#fff9 0,#fff0 35%),radial-gradient(circle at 85% 90%,#f2b60033 0,#f2b60000 45%)}
+@keyframes trshine{0%,55%{left:-60%}85%,100%{left:130%}}
+html[data-theme=dark] .tile.trt{background:linear-gradient(135deg,#3a2f0e,#5a4614 50%,#3a2f0e)!important;border-color:#8a6a14!important}
+@media (prefers-reduced-motion:reduce){.tile.trt:after{animation:none;display:none}}
 </style>
 </head>
 <body>

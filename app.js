@@ -369,10 +369,10 @@
     let fx = '';
     const R = n => Array.from({ length: n }, () => Math.random());
     if (skin === 'sun') fx = '<i class="fx-sun"></i>';
-    else if (skin === 'moon') fx = R(14).map((r, i) => `<i class="fx-star" style="left:${(i * 37 + r * 20) % 100}%;top:${8 + (i * 53 % 70)}%;animation-delay:${r * 3}s"></i>`).join('');
+    else if (skin === 'moon') fx = R(14).map((r, i) => `<i class="fx-star" style="left:${(i * 37 + r * 20) % 100}%;top:${8 + (i * 53 % 70)}%;animation-delay:${-r * 6}s;animation-duration:${2 + r * 3}s"></i>`).join('');
     else if (['part', 'cloud', 'cloudn', 'fog'].includes(skin)) fx = (skin === 'part' ? '<i class="fx-sun sm"></i>' : '') + [[-5, 6, 1], [38, 0, .8], [70, 14, 1.1]].map(([l, t, sc], i) => `<i class="fx-cloud" style="left:${l}%;top:${t}px;transform:scale(${sc});animation-delay:${-i * 7}s"></i>`).join('') + (skin === 'fog' ? '<i class="fx-fog"></i><i class="fx-fog b"></i>' : '');
-    else if (skin === 'rain' || skin === 'storm') fx = R(26).map((r, i) => `<i class="fx-drop" style="left:${(i * 3.9 + r * 3) % 100}%;animation-delay:${r * 1.2}s;animation-duration:${.7 + r * .4}s"></i>`).join('') + (skin === 'storm' ? '<i class="fx-flash"></i>' : '');
-    else if (skin === 'snow') fx = R(18).map((r, i) => `<i class="fx-flake" style="left:${(i * 5.6 + r * 4) % 100}%;animation-delay:${r * 3}s;animation-duration:${3 + r * 2}s"></i>`).join('');
+    else if (skin === 'rain' || skin === 'storm') fx = R(26).map((r, i) => `<i class="fx-drop" style="left:${(i * 3.9 + r * 3) % 100}%;animation-delay:${-r * 1.6}s;animation-duration:${1.2 + r * .6}s"></i>`).join('') + (skin === 'storm' ? '<i class="fx-flash"></i>' : '');
+    else if (skin === 'snow') fx = R(18).map((r, i) => `<i class="fx-flake" style="left:${(i * 5.6 + r * 4) % 100}%;animation-delay:${-r * 7}s;animation-duration:${6 + r * 3}s"></i>`).join('');
     el.insertAdjacentHTML('afterbegin', `<div class="wx-fx" aria-hidden="true">${fx}</div>`);
   }
   let wxOpen = false, wxBusy = false;
