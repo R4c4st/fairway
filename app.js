@@ -1534,34 +1534,71 @@
   function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
   /* --- Stats --- */
-  function viewStats() {
+  // une partie terminée à plusieurs : gagnée par moi (ou mon équipe) ?
+  function wonGame(g) {
+    const me = myPlayer(g); if (!me || g.game.status !== 'done') return null;
+    const course = gameCourse(g);
+    if (g.game.format === 'combo') { const r = comboResult(g); const mt = myTeam(g); if (!r || !mt) return null; const i = r.tps.findIndex(t => t.id === mt.id); return r.pts[i] > r.pts[1 - i]; }
+    if (g.game.format === 'scramble') { const tps = teamPlayers(g); if (tps.length < 2) return null; const rows = C.leaderboard(tps, phaseGame(g, 'scr'), course, scoresOf(g)).filter(r => r.played); const mt = myTeam(g); if (!rows.length || !mt) return null; return rows.filter(r => r.netToPar === rows[0].netToPar).some(r => r.playerId === mt.id) && rows.length > 1; }
+    if (indivPlayers(g).length < 2) return null;
+    if (g.game.format === 'match') { const ps = indivPlayers(g); let w = 0, l = 0; ps.filter(p => p.id !== me.id).forEach(o => { const m = C.matchPlay(me, o, g.game, course, scoresOf(g)[me.id] || {}, scoresOf(g)[o.id] || {}); if (m.up > 0) w++; else if (m.up < 0) l++; }); return w > 0 && l === 0; }
+    const rows = C.leaderboard(g.players, g.game, course, scoresOf(g)).filter(r => r.played);
+    if (rows.length < 2) return null;
+    const key = r => g.game.format === 'stableford' ? -r.points : (g.game.format === 'brut' ? r.toPar : r.netToPar);
+    const best = Math.min(...rows.map(key));
+    return rows.some(r => r.playerId === me.id && key(r) === best);
+  }
+  const rougesIn = g => { const me = myPlayer(g); return me ? (g.events || []).filter(e => e.type === 'rouge' && e.player_id === me.id).length : 0; };
+
+  function viewStats(mode) {
+    mode = mode || S.statsMode || 'avg'; S.statsMode = mode;
     const rounds = myRoundStats().filter(r => r.s.played > 0);
     const full18 = rounds.filter(r => r.s.finished && r.s.holes === 18);
     const nine = rounds.filter(r => r.s.finished && r.s.holes === 9);
     const avg = a => a.length ? (a.reduce((x, y) => x + y, 0) / a.length) : null;
     const f1 = v => v == null ? '–' : (Math.round(v * 10) / 10).toString().replace('.', ',');
+    // palmarès (toutes les parties terminées où je joue, y compris en équipe)
+    const mine = Object.values(S.games).filter(g => !g.follow && myPlayer(g));
+    const played = mine.filter(g => wonGame(g) !== null);
+    const wins = played.filter(g => wonGame(g) === true).length;
+    const rougesTot = mine.reduce((n, g) => n + rougesIn(g), 0);
+    const palmares = `<h2>Palmarès</h2><div class="kpis three"><div><b>🏆 ${wins}</b><small>coupe${wins > 1 ? 's' : ''} remportée${wins > 1 ? 's' : ''}</small></div><div><b>${played.length ? Math.round(wins * 100 / played.length) + '%' : '–'}</b><small>de victoires (${wins}/${played.length})</small></div><div><b>🍺 ${rougesTot}</b><small>rouge${rougesTot > 1 ? 's' : ''} pas dépassé${rougesTot > 1 ? 's' : ''}</small></div></div>`;
+    // sélection selon le filtre
+    let sel = rounds, single = null;
+    if (mode === 'last') { single = rounds[0] || null; sel = single ? [single] : []; }
+    if (mode === 'best') { const pool = full18.length ? full18 : rounds.filter(r => r.s.finished); single = pool.slice().sort((a, b) => a.s.toPar - b.s.toPar || (b.g.game.play_date || '').localeCompare(a.g.game.play_date || ''))[0] || null; sel = single ? [single] : []; }
     const byPar = { 3: [], 4: [], 5: [] }; let pick = 0, birdies = 0, pars = 0, bogeys = 0, dbl = 0, holesN = 0;
     const puttsArr = [];
-    rounds.forEach(r => Object.values(r.s.perHole).forEach(ph => {
+    sel.forEach(r => Object.values(r.s.perHole).forEach(ph => {
       if (ph.gross == null) return; holesN++;
       if (byPar[ph.par]) byPar[ph.par].push(ph.gross - ph.par);
       if (ph.pickup) pick++; else { const d = ph.raw - ph.par; if (d <= -1) birdies++; else if (d === 0) pars++; else if (d === 1) bogeys++; else dbl++; }
       if (ph.putts != null) puttsArr.push(ph.putts);
     }));
     const pct = n => holesN ? Math.round(n * 100 / holesN) + '%' : '–';
-    const last = full18.slice(0, 10).reverse();
-    const max = Math.max(...last.map(r => r.s.gross), 1), min = Math.min(...last.map(r => r.s.gross), max);
-    const spark = last.length > 1 ? `<svg viewBox="0 0 300 80" class="spark">${(() => { const pts = last.map((r, i) => [10 + i * (280 / (last.length - 1)), 70 - ((r.s.gross - min) / Math.max(1, max - min)) * 60]); return `<polyline fill="none" stroke="var(--g)" stroke-width="3" points="${pts.map(p => p.join(',')).join(' ')}"/>` + pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--g)"/><text x="${p[0]}" y="${p[1] - 8}" text-anchor="middle" font-size="11">${last[i].s.gross}</text>`).join(''); })()}</svg>` : '';
-    $app.innerHTML = topbar('Mes stats', '#/') + `<main>
-      <div class="kpis"><div><b>${rounds.length}</b><small>parties</small></div><div><b>${f1(avg(full18.map(r => r.s.gross)))}</b><small>brut moy. 18 t.</small></div><div><b>${full18.length ? Math.min(...full18.map(r => r.s.gross)) : '–'}</b><small>meilleur 18 t.</small></div><div><b>${f1(avg(full18.map(r => r.s.points)))}</b><small>Stableford moy.</small></div><div><b>${f1(avg(nine.map(r => r.s.gross)))}</b><small>brut moy. 9 t.</small></div><div><b>${f1(avg(puttsArr))}</b><small>putts / trou</small></div></div>
-      ${spark ? '<h2>Évolution (10 derniers 18 trous)</h2>' + spark : ''}
-      <h2>Moyenne par type de trou</h2>
+    let head = '', kpis = '', spark = '';
+    if (single) {
+      const r = single, w = wonGame(r.g), rg = rougesIn(r.g);
+      head = `<section class="card statround"><b>${esc(r.course.name)}</b><small>${frDate(r.g.game.play_date)} · ${FORMATS[r.g.game.format] || ''} · ${r.s.played}/${r.s.holes} trous${w === true ? ' · 🏆 gagnée' : ''}</small></section>`;
+      kpis = `<div class="kpis"><div><b>${r.s.gross}</b><small>brut (${fmtPar(r.s.toPar)})</small></div><div><b>${r.s.points}</b><small>points Stableford</small></div><div><b>${r.s.putts != null ? r.s.putts : '–'}</b><small>putts</small></div><div><b>${f1(avg(puttsArr))}</b><small>putts / trou</small></div><div><b>${pick}</b><small>croix</small></div><div><b>🍺 ${rg}</b><small>rouge${rg > 1 ? 's' : ''}</small></div></div>`;
+    } else {
+      kpis = `<div class="kpis"><div><b>${rounds.length}</b><small>parties</small></div><div><b>${f1(avg(full18.map(r => r.s.gross)))}</b><small>brut moy. 18 t.</small></div><div><b>${full18.length ? Math.min(...full18.map(r => r.s.gross)) : '–'}</b><small>meilleur 18 t.</small></div><div><b>${f1(avg(full18.map(r => r.s.points)))}</b><small>Stableford moy.</small></div><div><b>${f1(avg(nine.map(r => r.s.gross)))}</b><small>brut moy. 9 t.</small></div><div><b>${f1(avg(puttsArr))}</b><small>putts / trou</small></div></div>`;
+      const last = full18.slice(0, 10).reverse();
+      const max = Math.max(...last.map(r => r.s.gross), 1), min = Math.min(...last.map(r => r.s.gross), max);
+      spark = last.length > 1 ? `<h2>Évolution (10 derniers 18 trous)</h2><svg viewBox="0 0 300 80" class="spark">${(() => { const pts = last.map((r, i) => [10 + i * (280 / (last.length - 1)), 72 - ((r.s.gross - min) / Math.max(1, max - min)) * 50]); return `<polyline fill="none" stroke="var(--g)" stroke-width="3" points="${pts.map(p => p.join(',')).join(' ')}"/>` + pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--g)"/><text x="${p[0]}" y="${p[1] - 8}" text-anchor="middle" font-size="11">${last[i].s.gross}</text>`).join(''); })()}</svg>` : '';
+    }
+    const body = !sel.length ? '<p class="muted">Pas encore de partie à afficher.</p>' : `${head}${kpis}${spark}
+      <h2>${single ? 'Par type de trou' : 'Moyenne par type de trou'}</h2>
       <div class="kpis three">${[3, 4, 5].map(p => `<div><b>${byPar[p].length ? fmtPar(Math.round(avg(byPar[p]) * 100) / 100).replace('.', ',') : '–'}</b><small>par ${p}</small></div>`).join('')}</div>
       <h2>Répartition des trous</h2>
-      <div class="bars">${[['Birdie et mieux', birdies, 'birdie'], ['Par', pars, 'par'], ['Bogey', bogeys, 'bogey'], ['Double et plus', dbl, 'dbl'], ['Ramassées', pick, 'pick']].map(([l, n, c]) => `<div class="bar"><span>${l}</span><i class="${c}" style="width:${holesN ? n * 100 / holesN : 0}%"></i><b>${pct(n)}</b></div>`).join('')}</div>
-      <p class="hint">Ta stratégie bogey : tout ce qui est dans « Par » + « Bogey » est dans le plan.</p>
+      <div class="bars">${[['Birdie et mieux', birdies, 'birdie'], ['Par', pars, 'par'], ['Bogey', bogeys, 'bogey'], ['Double et plus', dbl, 'dbl'], ['Ramassées', pick, 'pick']].map(([l, n, c]) => `<div class="bar"><span>${l}</span><i class="${c}" style="width:${holesN ? n * 100 / holesN : 0}%"></i><b>${pct(n)}</b></div>`).join('')}</div>`;
+    $app.innerHTML = topbar('Mes stats', '#/') + `<main>
+      ${palmares}
+      <div class="seg statseg">${[['last', 'Dernière partie'], ['avg', 'Moyenne'], ['best', 'Meilleure']].map(([k, l]) => `<button data-sm="${k}" class="${mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      ${body}
     </main>`;
     updateSyncBadge();
+    $app.querySelectorAll('[data-sm]').forEach(b => b.onclick = () => viewStats(b.dataset.sm));
   }
 
   /* --- Parcours --- */
