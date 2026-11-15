@@ -976,12 +976,12 @@
     const spect = !!g.follow;
     if (spect && (S.tab === 'trou' || S.tab === 'carte')) S.tab = 'classement';
     const tabs = spect ? [['classement', 'Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
-    $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="icon bigtg ${S.me.big ? 'on' : ''}" id="g-big" aria-label="Mode parcours">👓</button><button class="icon" id="g-invite" aria-label="Inviter">📨</button>`) +
+    $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="aatg ${S.me.big ? 'on' : ''}" id="g-big" aria-label="Taille du texte"><small>A</small>A</button>`) +
       `<nav class="tabs">${tabs.map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"></main>`;
     updateSyncBadge();
     $app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { S.tab = b.dataset.tab; $app.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('on', x === b)); renderGameBody(); });
     if (!spect) {
-      $app.querySelector('#g-invite').onclick = () => showInvite(g); startGPS();
+      startGPS();
       $app.querySelector('#g-big').onclick = () => { S.me.big = !S.me.big; saveMe(); applyBig(); $app.querySelector('#g-big').classList.toggle('on', !!S.me.big); if (S.me.big && S.tab !== 'trou') { S.tab = 'trou'; viewGame(gid); return; } renderGameBody(); toast(S.me.big ? '👓 Mode parcours' : 'Mode normal'); };
     }
     subscribe(gid);
@@ -1431,7 +1431,9 @@
         <h2>Ou un invité</h2>
         <div class="form"><div class="row2"><label>Prénom<input id="ap-n"></label>${C.noHcp(g.game) ? '' : '<label>Index<input id="ap-i" inputmode="decimal"></label>'}</div></div>
         <button class="btn big full" id="ap-go">Ajouter l'invité</button>
+        <button class="btn ghost full" id="ap-inv">📨 Envoyer le lien / QR de la partie</button>
         <button class="btn ghost full" id="ap-x">Fermer</button></div>`;
+      el.querySelector('#ap-inv').onclick = () => { el.remove(); showInvite(g); };
       el.querySelectorAll('[data-ak]').forEach(b => b.onclick = () => {
         const m = list.find(x => x.key === b.dataset.ak); if (!m) return;
         addPlayer(g.game.id, { name: m.name, idx: m.idx == null ? '' : String(m.idx), device_id: m.device_id });
@@ -1889,7 +1891,7 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
-      <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via 👓 en haut d'une partie)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via Aa en haut d'une partie)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
