@@ -313,7 +313,6 @@
   S.flights = LS.get('fw_flights', []);
   const flightCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
   const flInit = n => { const w = n.trim().split(/\s+/).filter(x => x.length > 2 || /\d/.test(x)); return n.trim().length <= 4 ? n.trim() : (w.length > 1 ? w[0][0] + w[1][0] : n.trim().slice(0, 2)).toUpperCase(); };
-  const flightLink = f => APP_URL + '#/f/' + f.code;
   // téléphones de tous les membres de mes Flights (moi exclu)
   function knownDevs() { const k = new Set(); S.flights.forEach(f => (f.members || []).forEach(m => { if (m.device_id !== S.me.deviceId) k.add(m.device_id); })); return k; }
   const isKnown = dev => !!dev && (dev === S.me.deviceId || knownDevs().has(dev));
@@ -346,7 +345,7 @@
       ${list || '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Tu n\'es dans aucun Flight.</p><small>Un Flight, c\'est ta bande de golf : vous voyez vos parties, vos scores en direct et le Fly Tour entre vous seulement.</small></div>'}
       <button class="btn big full" id="fl-new">＋ Créer un Flight</button>
       <button class="btn ghost full" id="fl-join">Rejoindre avec un code</button>
-      <p class="hint">Tu ne vois que les golfeurs de tes Flights. On n'entre dans un Flight que sur invitation (lien, QR code ou code à 6 caractères).</p></main>`;
+      <p class="hint">Tu ne vois que les golfeurs de tes Flights. On n'entre dans un Flight qu'avec son code à 6 caractères, donné par un membre.</p></main>`;
     updateSyncBadge();
     $app.querySelector('#fl-new').onclick = async () => {
       const n = await fwPrompt('Nom du Flight :'); if (!n || !n.trim()) return;
@@ -364,9 +363,8 @@
     const sig = JSON.stringify(S.flights);
     pullFlights().then(() => { if (location.hash === '#/flights' && JSON.stringify(S.flights) !== sig) viewFlights(); });
   }
-  function flightQR(f) { try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(flightLink(f)); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { } return ''; }
   async function shareFlight(f) {
-    const msg = 'Rejoins notre Flight « ' + f.name + ' » sur Fly18 ⛳ — scores en direct, Fly Tour, et le dernier paie sa tournée 🍺.\nOuvre ce lien avec Chrome : ' + flightLink(f) + '\n(ou code : ' + f.code + ')';
+    const msg = 'Code pour rejoindre notre Flight « ' + f.name + ' » sur Fly18 : ' + f.code + '\n(Dans l\'appli : Réglages → Mes Flights → Rejoindre avec un code)';
     if (navigator.share) { try { await navigator.share({ title: 'Fly18 · ' + f.name, text: msg }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(msg); toast('Invitation copiée 📋'); } catch (e) { fwPrompt('Copie ce message :', msg); }
   }
@@ -374,20 +372,19 @@
     const f = S.flights.find(x => x.id === id);
     if (!f) { pullFlights().then(() => { if (S.flights.find(x => x.id === id)) viewFlight(id); else location.hash = '#/flights'; }); $app.innerHTML = topbar('Flight', '#/flights') + '<main><p class="muted">Chargement…</p></main>'; return; }
     const admin = f.admin_device === S.me.deviceId;
-    const qr = flightQR(f);
     $app.innerHTML = topbar(esc(f.name), '#/flights') + `<main class="form">
-      <p class="muted" style="text-align:center;margin:0">Invite un pote : il scanne le QR code ou ouvre le lien, et il rejoint le Flight.</p>
-      <div class="qrbox">${qr || '<p class="muted">QR code indisponible hors connexion</p>'}</div>
-      <div class="qrurl">Code : <b>${esc(f.code)}</b></div>
-      <button class="btn big full" id="fd-share">📤 Partager l'invitation</button>
+      <p class="muted" style="text-align:center;margin:0">Code pour rejoindre le Flight</p>
+      <div class="flcode">${esc(f.code)}</div>
+      <button class="btn big full" id="fd-share">📤 Envoyer le code</button>
+      <p class="hint" style="text-align:center">Ton pote installe d'abord Fly18 (« Inviter un pote » sur l'accueil), puis il entre ce code au démarrage ou dans Réglages → Mes Flights.</p>
       <h2>Membres · ${(f.members || []).length}</h2>
       <div class="flmem">${(f.members || []).map(m => `<span>${S.onlineMap[m.device_id] && m.device_id !== S.me.deviceId ? '<i class="led sm"></i>' : ''}${esc(m.name || '?')}${m.device_id === f.admin_device ? ' <small>admin</small>' : ''}${admin && m.device_id !== S.me.deviceId ? ` <button class="x" data-rm="${esc(m.device_id)}" aria-label="Retirer">✕</button>` : ''}</span>`).join('')}</div>
-      ${admin ? `<div class="row2"><button class="btn ghost" id="fd-ren">Renommer</button><button class="btn ghost" id="fd-code">Nouveau lien</button></div><p class="hint">« Nouveau lien » désactive l'ancien lien et l'ancien code.</p>` : ''}
+      ${admin ? `<div class="row2"><button class="btn ghost" id="fd-ren">Renommer</button><button class="btn ghost" id="fd-code">Nouveau code</button></div><p class="hint">« Nouveau code » désactive l'ancien code.</p>` : ''}
       <button class="btn ghost full danger" id="fd-leave">Quitter le Flight</button></main>`;
     updateSyncBadge();
     $app.querySelector('#fd-share').onclick = () => shareFlight(f);
     const ren = $app.querySelector('#fd-ren'); if (ren) ren.onclick = async () => { const n = await fwPrompt('Nouveau nom :', f.name); if (!n || !n.trim()) return; const { error } = await sb.from('flights').update({ name: n.trim().slice(0, 30) }).eq('id', f.id); if (error) return fwAlert('Impossible, réessaie.'); await pullFlights(); viewFlight(f.id); };
-    const nc = $app.querySelector('#fd-code'); if (nc) nc.onclick = async () => { if (!await fwConfirm('Créer un nouveau lien ? L\'ancien lien et l\'ancien code ne marcheront plus.')) return; const { error } = await sb.from('flights').update({ code: flightCode() }).eq('id', f.id); if (error) return fwAlert('Impossible, réessaie.'); await pullFlights(); viewFlight(f.id); toast('Nouveau lien prêt'); };
+    const nc = $app.querySelector('#fd-code'); if (nc) nc.onclick = async () => { if (!await fwConfirm('Créer un nouveau code ? L\'ancien code ne marchera plus.')) return; const { error } = await sb.from('flights').update({ code: flightCode() }).eq('id', f.id); if (error) return fwAlert('Impossible, réessaie.'); await pullFlights(); viewFlight(f.id); toast('Nouveau code prêt'); };
     $app.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { const m = f.members.find(x => x.device_id === b.dataset.rm); if (!await fwConfirm('Retirer ' + (m ? m.name : 'ce membre') + ' du Flight ?')) return; await sb.from('flight_members').delete().eq('flight_id', f.id).eq('device_id', b.dataset.rm); await pullFlights(); viewFlight(f.id); });
     $app.querySelector('#fd-leave').onclick = async () => {
       if (admin && (f.members || []).length > 1) return fwAlert('Tu es l\'admin de ce Flight. Retire d\'abord les autres membres, ou garde-le.');
@@ -397,6 +394,17 @@
       await pullFlights(); LS.set('fw_season', null); location.hash = '#/flights';
     };
     pullFlights().then(() => { const n = S.flights.find(x => x.id === id); if (n && location.hash === '#/flight/' + id && JSON.stringify(n) !== JSON.stringify(f)) viewFlight(id); });
+  }
+  function viewFlightOnboard() {
+    $app.innerHTML = `<main class="welcome"><i class="crest big">${FW_IC('crest')}</i><h1 style="font-size:24px">Ton Flight</h1>
+      <p>Un Flight, c'est ta bande de golf : vos parties, le Live et le Fly Tour entre vous seulement.</p>
+      <div class="form"><label>Code du Flight (donné par un pote)<input id="ob-code" maxlength="6" autocapitalize="characters" placeholder="ex. 7KQ2PX" style="text-transform:uppercase;letter-spacing:.2em;text-align:center;font-weight:800"></label>
+      <button class="btn big full" id="ob-join">Rejoindre le Flight</button>
+      <button class="btn ghost full" id="ob-new">Créer mon Flight</button>
+      <button class="btn ghost full" id="ob-later" style="border:0">Plus tard</button></div></main>`;
+    $app.querySelector('#ob-join').onclick = async () => { const c = $app.querySelector('#ob-code').value.trim(); if (c.length < 6) return fwAlert('Entre le code à 6 caractères.'); try { const f = await joinFlightByCode(c); toast('Bienvenue dans « ' + f.name + ' »'); location.hash = '#/'; route(); } catch (e) { fwAlert(e.message); } };
+    $app.querySelector('#ob-new').onclick = () => { location.hash = '#/flights'; setTimeout(() => { const b = document.getElementById('fl-new'); if (b) b.click(); }, 50); };
+    $app.querySelector('#ob-later').onclick = () => { location.hash = '#/'; route(); };
   }
   async function viewFlightJoin(code) {
     $app.innerHTML = topbar('Rejoindre un Flight', '#/') + '<main><p class="muted">Recherche du Flight…</p></main>';
@@ -1072,6 +1080,7 @@
   const histGames = () => Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
 
   function viewHome() {
+    if (!S.me.name) return; // pas de profil : l'écran de bienvenue reste affiché
     const rounds = myRoundStats();
     const potes = Object.values(S.games).filter(g => g.follow).sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
     const open = Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done').sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
@@ -1094,7 +1103,7 @@
       ${!S.flights.length && S.me.name ? `<a class="sinvite" href="#/flights"><span><i class="crest">${FW_IC('crest')}</i></span><div><b>Rejoins ou crée ton Flight</b><small>Ta bande de golf : vos parties, le Live et le Fly Tour entre vous.</small></div><span class="hchev">›</span></a>` : ''}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
-      ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>${S.flights.length ? 'QR code pour rejoindre ton Flight et installer Fly18' : 'QR code pour installer Fly18'}</small></div><span>›</span></button>` : ''}
+      ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>QR code pour installer Fly18</small></div><span>›</span></button>` : ''}
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
     </main>`;
     updateSyncBadge();
@@ -2335,7 +2344,6 @@
     installEvt = null; const b = document.getElementById('installbar'); if (b) b.remove();
   }
   function inviteSheet() {
-    if (S.flights.length) return flightInviteSheet(S.flights[0]);
     let qr = '';
     try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(APP_URL); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
     const msg = 'Rejoins-nous sur Fly18 ⛳ — l\'appli golf des copains (scores en direct, GPS, et le dernier paie sa tournée 🍺).\nOuvre ce lien avec Chrome et installe-la : ' + APP_URL;
@@ -2355,24 +2363,6 @@
     };
   }
 
-  function flightInviteSheet(f) {
-    const el = document.createElement('div'); el.className = 'modal';
-    const draw = () => {
-      const qr = flightQR(f);
-      el.innerHTML = `<div class="sheet invite"><h2 class="rgh">${FW_IC('invite')} Inviter un pote</h2>
-      ${S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(x => `<button data-fs="${x.id}" class="${x.id === f.id ? 'on' : ''}">${esc(x.name)}</button>`).join('')}</div>` : ''}
-      <p class="muted">Il scanne le code avec l'appareil photo de son téléphone : l'appli s'ouvre, s'installe, et il rejoint le Flight <b>${esc(f.name)}</b>.</p>
-      <div class="qrbox">${qr || '<p class="muted">QR code indisponible hors connexion</p>'}</div>
-      <div class="qrurl">Code du Flight : <b>${esc(f.code)}</b></div>
-      <button class="btn big full" id="iv-share">Envoyer l'invitation (WhatsApp, SMS…)</button>
-      <button class="btn ghost full" id="iv-x">Fermer</button></div>`;
-      el.querySelector('#iv-x').onclick = () => el.remove();
-      el.querySelector('#iv-share').onclick = () => shareFlight(f);
-      el.querySelectorAll('[data-fs]').forEach(b => b.onclick = () => { f = S.flights.find(x => x.id === b.dataset.fs) || f; draw(); });
-    };
-    draw(); document.body.appendChild(el);
-    el.onclick = e => { if (e.target === el) el.remove(); };
-  }
   function viewWelcome() {
     $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fly18"><h1>${WORDMARK}</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
@@ -2387,7 +2377,7 @@
       // même prénom déjà inscrit ? c'est peut-être toi sur un autre appareil
       if (remoteOn()) { try { const { data } = await sb.from('profiles').select('device_id').ilike('name', n).neq('device_id', S.me.deviceId).limit(1); if (data && data.length && await fwConfirm('Un copain « ' + n + ' » est déjà inscrit.\nC\'est toi sur un autre appareil (téléphone, PC…) ?', 'Oui, c\'est moi', false, 'Non, quelqu\'un d\'autre')) { $app.querySelector('#w-restore').click(); return; } } catch (e) { } }
       S.me.name = n; S.me.index = $app.querySelector('#w-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#w-tee').value;
-      syncProfile(); route();
+      syncProfile(); await pullFlights(); if (!S.flights.length && !/^#\/(f|join)\//.test(location.hash)) return viewFlightOnboard(); route();
     };
     $app.querySelector('#w-restore').onclick = async () => { const c = await fwPrompt('Code de ton profil (Profil > Mon code) :'); if (!c) return; try { await restoreProfile(c); toast('Re-bonjour ' + S.me.name + ' 👋'); route(); } catch (e) { fwAlert(e.message); } };
   }
@@ -2473,7 +2463,7 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullFlights().then(() => { if (location.hash === '' || location.hash === '#/') viewHome(); }).then(pullMyGames).then(pullFollowGames).then(scheduleBackup).then(replayOpenGames).then(() => setTimeout(checkTrophies, 2500));
+    pullFlights().then(() => { if (S.me.name && (location.hash === '' || location.hash === '#/')) viewHome(); }).then(pullMyGames).then(pullFollowGames).then(scheduleBackup).then(replayOpenGames).then(() => setTimeout(checkTrophies, 2500));
     startPresence();
     pullCopains();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });
