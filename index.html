@@ -448,6 +448,15 @@ html[data-big] .act{min-height:54px;font-size:17px}
 .qrbox svg{width:100%;height:100%;display:block}
 .qrurl{font-weight:700;color:var(--g);margin-bottom:12px;font-size:14px}
 .lvcode{margin-top:18px}
+.nshot .nslab{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mu);margin:12px 0 6px}
+.shotgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.shotgrid.one{grid-template-columns:1fr;margin-top:8px}
+.shotgrid button{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 12px;border:1.5px solid var(--bd);background:var(--card);border-radius:12px;font:inherit;color:var(--tx);text-align:left;cursor:pointer}
+.shotgrid button span{font-size:22px;width:28px;text-align:center;flex:none}
+.shotgrid button b{font-size:15px;font-weight:600;line-height:1.15}
+.shotgrid button.on{border-color:#27ae60;background:#e8f7ee;box-shadow:0 0 0 2px #27ae60 inset}
+html[data-theme=dark] .shotgrid button.on{background:#123222}
+.nshot #sh-go{margin-top:14px}
 </style>
 </head>
 <body>

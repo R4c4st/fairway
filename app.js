@@ -15,8 +15,11 @@
   const frDate = d => { if (!d) return ''; const [y, m, j] = d.split('-'); return j + '/' + m + '/' + y; };
   const FORMATS = { stableford: 'Stableford', net: 'Stroke play net', brut: 'Stroke play brut', match: 'Match play', scramble: 'Scramble', combo: 'Scramble 9 + Match play 9' };
   const MODES = { '18': '18 trous', front: 'Aller (1-9)', back: 'Retour (10-18)' };
-  const SHOTS = [['birdie', '🐦', 'Birdie'], ['eagle', '🦅', 'Eagle'], ['hio', '💥', 'Trou en 1'], ['drive', '🚀', 'Gros drive'], ['approche', '🎯', 'Belle approche'], ['putt', '⛳', 'Putt de fou'], ['chip', '🪄', 'Chip-in'], ['bunker', '🏖️', 'Sortie de bunker'], ['sauvetage', '🦸', 'Sauvetage'], ['par', '💪', 'Par arraché'], ['autre', '👏', 'Autre…']];
-  const shotOf = t => SHOTS.find(s => s[0] === t) || ['autre', '👏', 'Beau coup'];
+  // [id, emoji, libellé, groupe]
+  const SHOTS = [['birdie', '🐦', 'Birdie', 's'], ['eagle', '🦅', 'Eagle', 's'], ['hio', '💥', 'Trou en 1', 's'], ['par', '💪', 'Par arraché', 's'],
+    ['drive', '🚀', 'Gros drive', 'c'], ['approche', '🎯', 'Belle approche', 'c'], ['chip', '🪄', 'Chip-in', 'c'], ['putt', '⛳', 'Putt de fou', 'c'], ['bunker', '🏖️', 'Sortie de bunker', 'c'], ['sauvetage', '🦸', 'Sauvetage', 'c'],
+    ['autre', '👏', 'Autre…', 'a']];
+  const shotOf = t => SHOTS.find(s => s[0] === t) || ['autre', '👏', 'Nice shot'];
 
   /* ---------- État ---------- */
   const S = {
@@ -556,9 +559,13 @@
     const st = { pid: (myPlayer(g) || g.players[0] || {}).id, type: null };
     const el = document.createElement('div'); el.className = 'modal';
     const draw = () => {
-      el.innerHTML = `<div class="sheet"><h2 class="rgh">${FW_IC('gold')} Signaler un beau coup</h2>
-        <div class="pick">${indivPlayers(g).map(p => `<button data-p="${p.id}" class="${p.id === st.pid ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
-        <div class="pick shots">${SHOTS.map(s => `<button data-t="${s[0]}" class="${s[0] === st.type ? 'on' : ''}"><span>${s[1]}</span>${s[2]}</button>`).join('')}</div>
+      const grid = grp => SHOTS.filter(s => s[3] === grp).map(s => `<button data-t="${s[0]}" class="${s[0] === st.type ? 'on' : ''}"><span>${s[1]}</span><b>${s[2]}</b></button>`).join('');
+      const pl = indivPlayers(g);
+      el.innerHTML = `<div class="sheet nshot"><h2 class="rgh">${FW_IC('gold')} Nice shot !</h2>
+        ${pl.length > 1 ? `<div class="nslab">Qui ?</div><div class="pick">${pl.map(p => `<button data-p="${p.id}" class="${p.id === st.pid ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>` : ''}
+        <div class="nslab">Score</div><div class="shotgrid">${grid('s')}</div>
+        <div class="nslab">Le coup</div><div class="shotgrid">${grid('c')}</div>
+        <div class="shotgrid one">${grid('a')}</div>
         <button class="btn big full" id="sh-go" ${st.pid && st.type ? '' : 'disabled'}>Envoyer à tout le monde</button>
         <button class="btn ghost full" id="sh-x">Annuler</button></div>`;
       el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { st.pid = b.dataset.p; draw(); });
@@ -1042,7 +1049,7 @@
     body.innerHTML = holeChips(g, h) + `
       <section class="holehead"><div class="hn">${h}</div><div><b>Par ${ch.par}</b> · HCP ${ch.si}${dist ? ' · ' + dist + ' m' : ''}<small>${stars ? `<span class="stars">${stars}</span> ` : ''}${ch.note ? esc(ch.note) : '<i class="muted">Pas de note sur ce trou</i>'}</small></div><button class="icon" id="h-note" aria-label="Modifier la note">✏️</button></section>
       <section class="gps" id="gps"></section>
-      <div class="actrow"><button class="act good" id="h-shot">${FW_IC('gold')}<b>Beau coup</b></button>${rougeEligible(g).length ? `<button class="act bad" id="h-rouge">${FW_IC('croix')}<b>Rouges</b>${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length ? `<span class="actn">${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length}</span>` : ''}</button>` : ''}</div>
+      <div class="actrow"><button class="act good" id="h-shot">${FW_IC('gold')}<b>Nice shot</b></button>${rougeEligible(g).length ? `<button class="act bad" id="h-rouge">${FW_IC('croix')}<b>Rouges</b>${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length ? `<span class="actn">${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length}</span>` : ''}</button>` : ''}</div>
       ${phaseInfo}
       <section class="players">${sumRows}</section>
       ${!isTeamGame(g) && g.players.length < 8 ? '<button class="btn ghost full" id="h-addp">＋ Ajouter un joueur</button>' : ''}
