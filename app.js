@@ -571,9 +571,9 @@
       el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { st.pid = b.dataset.p; draw(); });
       el.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { st.type = b.dataset.t; draw(); });
       el.querySelector('#sh-x').onclick = () => el.remove();
-      el.querySelector('#sh-go').onclick = () => {
+      el.querySelector('#sh-go').onclick = async () => {
         let label = null;
-        if (st.type === 'autre') { label = prompt('Quel coup ?', 'Coup de génie'); if (!label) return; }
+        if (st.type === 'autre') { label = await fwPrompt('Quel coup ?', 'Coup de génie'); if (!label) return; }
         el.remove(); addEvent(g.game.id, { player_id: st.pid, type: st.type, label, hole });
       };
     };
@@ -641,7 +641,7 @@
         const q = encodeURIComponent((/golf/i.test(course.name) ? '' : 'golf ') + course.name + ' ' + (course.city || ''));
         const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + q).then(x => x.json()).catch(() => []);
         center = r && r[0] ? { lat: +r[0].lat, lng: +r[0].lon } : S.pos;
-        if (!center) { if (!silent || silent === 'auto') toast('Golf introuvable : place les greens à la main'); if (false) alert('Golf introuvable par son nom : lance la recherche depuis le parcours, GPS activé.'); return 0; }
+        if (!center) { if (!silent || silent === 'auto') toast('Golf introuvable : place les greens à la main'); if (false) fwAlert('Golf introuvable par son nom : lance la recherche depuis le parcours, GPS activé.'); return 0; }
         const cc = JSON.parse(JSON.stringify(getCourse(courseId))); cc.center = { lat: +center.lat.toFixed(6), lng: +center.lng.toFixed(6) }; saveCourse(cc);
       }
       const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(C.overpassQuery(center, 2500)), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
@@ -654,7 +654,7 @@
       if (!silent || n) toast(n ? `🛰️ ${n}/${course.holes.length} trous placés automatiquement` : 'Ce golf n\'est pas cartographié sur OpenStreetMap : place les greens à la main.');
       renderGameBody();
       return n;
-    } catch (e) { if (silent === 'auto') toast('Drapeaux : recherche impossible pour l\'instant'); else if (!silent) alert('Recherche impossible (connexion ?)'); return 0; }
+    } catch (e) { if (silent === 'auto') toast('Drapeaux : recherche impossible pour l\'instant'); else if (!silent) fwAlert('Recherche impossible (connexion ?)'); return 0; }
   }
 
   async function pullCourses() {
@@ -900,15 +900,15 @@
       }
       $app.querySelector('#n-go').onclick = () => {
         const players = st.players.filter(p => String(p.name).trim()).map(p => ({ name: String(p.name).trim(), idx: String(p.idx == null ? '' : p.idx).replace(',', '.'), device_id: p.device_id || null }));
-        if (!players.length) return alert('Ajoute au moins un joueur.');
+        if (!players.length) return fwAlert('Ajoute au moins un joueur.');
         let teams = null;
         if (teamFmt()) {
           const keep = st.players.map((p, i) => String(p.name).trim() ? i : -1).filter(i => i >= 0);
           const asg = keep.map(i => st.assign[i]);
-          if (asg.some(a => a == null || a < 0)) return alert('Place chaque joueur dans une équipe (ou fais un tirage au sort 🎲).');
+          if (asg.some(a => a == null || a < 0)) return fwAlert('Place chaque joueur dans une équipe (ou fais un tirage au sort 🎲).');
           teams = Array.from({ length: nTeams() }, (_, k) => ({ name: (st.tnames[k] || TEAM_NAMES[k]).trim() || TEAM_NAMES[k], color: TEAM_COLORS[k % TEAM_COLORS.length], members: asg.map((a, j) => a === k ? j : -1).filter(j => j >= 0) })).filter(t => t.members.length);
-          if (teams.some(t => t.members.length !== st.teamSize)) return alert('Chaque équipe doit avoir ' + st.teamSize + ' joueurs.');
-          if (st.format === 'combo' && teams.length !== 2) return alert('Le combo se joue à 2 équipes.');
+          if (teams.some(t => t.members.length !== st.teamSize)) return fwAlert('Chaque équipe doit avoir ' + st.teamSize + ' joueurs.');
+          if (st.format === 'combo' && teams.length !== 2) return fwAlert('Le combo se joue à 2 équipes.');
         }
         const id = createGame({ ...st, players, teams });
         location.hash = '#/game/' + id;
@@ -948,7 +948,7 @@
       push({ t: 'upsert', table: 'players', row: p }); if (!S.me.name) { S.me.name = p.name; S.me.index = p.idx == null ? '' : String(p.idx); syncProfile(); } subscribeMe(); location.hash = '#/game/' + g.game.id;
     });
     $app.querySelector('#j-go').onclick = () => {
-      const name = $app.querySelector('#j-name').value.trim(); if (!name) return alert('Ton nom ?');
+      const name = $app.querySelector('#j-name').value.trim(); if (!name) return fwAlert('Ton nom ?');
       const idx = $app.querySelector('#j-idx').value.replace(',', '.');
       if (!S.me.name) { S.me.name = name; S.me.index = idx; syncProfile(); }
       addPlayer(g.game.id, { name, idx, device_id: S.me.deviceId }); S.games[g.game.id].mine = true; saveGames(); subscribeMe();
@@ -1084,7 +1084,7 @@
     const go = d => { S.hole[g.game.id] = holes[idx + d]; S.measure = null; renderGameBody(); window.scrollTo(0, 0); };
     const p = body.querySelector('#h-prev'); if (p) p.onclick = () => go(-1);
     const n = body.querySelector('#h-next'); if (n) n.onclick = () => go(1);
-    const e = body.querySelector('#h-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); S.tab = 'classement'; viewGame(g.game.id); celebrate(g.game.id); } };
+    const e = body.querySelector('#h-end'); if (e) e.onclick = async () => { if (await fwConfirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); S.tab = 'classement'; viewGame(g.game.id); celebrate(g.game.id); } };
     const r = body.querySelector('#h-reopen'); if (r) r.onclick = () => { updateGame(g.game.id, { status: 'open' }); renderGameBody(); };
   }
   /* ---------- Équipes (scramble / combo) ---------- */
@@ -1164,12 +1164,12 @@
   const scoreCls = d => d <= -2 ? 'eagle' : d === -1 ? 'birdie' : d === 0 ? 'par' : d === 1 ? 'bogey' : 'dbl';
   const vibrate = pat => { try { navigator.vibrate && navigator.vibrate(pat || 15); } catch (e) { } };
 
-  function editNote(g, h) {
+  async function editNote(g, h) {
     const course = getCourse(g.game.course_id); if (!course) return;
     const ch = course.holes[h - 1];
-    const note = prompt('Note / difficultés du trou ' + h + ' (partagée avec tes potes) :', ch.note || '');
+    const note = await fwPrompt('Note / difficultés du trou ' + h + ' (partagée avec tes potes) :', ch.note || '');
     if (note === null) return;
-    const d = prompt('Difficulté de 1 (facile) à 5 (piège) — vide pour aucune :', ch.difficulty || '');
+    const d = await fwPrompt('Difficulté de 1 (facile) à 5 (piège) — vide pour aucune :', ch.difficulty || '');
     const copy = JSON.parse(JSON.stringify(course));
     copy.holes[h - 1].note = note.trim();
     const dn = parseInt(d, 10); copy.holes[h - 1].difficulty = dn >= 1 && dn <= 5 ? dn : null;
@@ -1199,7 +1199,7 @@
     el.innerHTML = html;
     el.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => setGreenPoint(g, h, b.dataset.gp, S.pos));
     el.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { S.tab = 'carte'; S.mapEditMode = true; S.mapEdit = 'center'; viewGame(curGid); });
-    el.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { if (b.dataset.ms === 'start') { S.measure = { lat: S.pos.lat, lng: S.pos.lng }; } else { const d = C.distance(S.measure, S.pos); S.measure = null; if (d) alert('Distance du coup : ' + d + ' m'); } updateGPSView(); });
+    el.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { if (b.dataset.ms === 'start') { S.measure = { lat: S.pos.lat, lng: S.pos.lng }; } else { const d = C.distance(S.measure, S.pos); S.measure = null; if (d) fwAlert('Distance du coup : ' + d + ' m'); } updateGPSView(); });
   }
 
   function setGreenPoint(g, h, key, pt) {
@@ -1328,7 +1328,7 @@
     };
     body.querySelector('#b-beer').onclick = () => celebrate(g.game.id);
     body.querySelector('#b-del').onclick = () => deleteGame(g);
-    const e = body.querySelector('#b-end'); if (e) e.onclick = () => { if (confirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); renderGameBody(); celebrate(g.game.id); } };
+    const e = body.querySelector('#b-end'); if (e) e.onclick = async () => { if (await fwConfirm('Terminer la partie ?')) { updateGame(g.game.id, { status: 'done' }); renderGameBody(); celebrate(g.game.id); } };
   }
 
   /* --- Carte de score --- */
@@ -1394,7 +1394,7 @@
   let liveChannel = null, liveTimer2 = null;
   async function viewLive() {
     $app.innerHTML = topbar('Live', '#/') + '<main><div id="livebody"><p class="muted">Recherche des parties en cours…</p></div><button class="btn ghost full lvcode" id="lv-code">🔑 J\'ai un code de partie</button></main>';
-    $app.querySelector('#lv-code').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
+    $app.querySelector('#lv-code').onclick = async () => { const c = await fwPrompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
     updateSyncBadge();
     if (!remoteOn()) { document.getElementById('livebody').innerHTML = '<p class="err">Serveur non configuré.</p>'; return; }
     const draw = async () => {
@@ -1553,21 +1553,21 @@
     document.getElementById('a-prev').onclick = () => go(-1);
     document.getElementById('a-next').onclick = () => go(1);
     document.getElementById('a-fit').onclick = fit;
-    document.getElementById('a-clear').onclick = () => { if (!confirm('Effacer départ et green du trou ' + st.h + ' ?')) return; ['tee', 'front', 'center', 'back'].forEach(k => savePt(k, null)); refresh(false); };
+    document.getElementById('a-clear').onclick = async () => { if (!await fwConfirm('Effacer départ et green du trou ' + st.h + ' ?')) return; ['tee', 'front', 'center', 'back'].forEach(k => savePt(k, null)); refresh(false); };
     drawChips(); drawInfo();
   }
 
   /* --- Suppression d'une partie --- */
-  function deleteGame(g) {
+  async function deleteGame(g) {
     const others = g.players.filter(p => p.device_id && p.device_id !== S.me.deviceId);
     const iCreated = !g.game.created_by || g.game.created_by === S.me.name;
     let everywhere = false;
-    if (g.follow) { if (!confirm('Ne plus afficher cette partie ?')) return; }
-    else if (!others.length || !remoteOn()) { if (!confirm('Supprimer définitivement cette partie ?')) return; everywhere = true; }
+    if (g.follow) { if (!await fwConfirm('Ne plus afficher cette partie ?')) return; }
+    else if (!others.length || !remoteOn()) { if (!await fwConfirm('Supprimer cette partie ?', 'Supprimer', true)) return; everywhere = true; }
     else if (iCreated) {
-      const r = prompt('Partie partagée avec ' + others.map(p => p.name).join(', ') + '.\nTape 1 pour la supprimer pour tout le monde, 2 pour la retirer juste de ton téléphone.', '2');
-      if (r === '1') everywhere = true; else if (r !== '2') return;
-    } else if (!confirm('Retirer cette partie de ton téléphone ? (elle reste chez les autres joueurs)')) return;
+      const r = await fwChoice('Partie partagée avec ' + others.map(p => p.name).join(', ') + '.', [['all', 'Supprimer pour tout le monde', 'danger'], ['me', 'Retirer juste de mon téléphone', 'ghost'], [null, 'Annuler', 'ghost']]);
+      if (r === 'all') everywhere = true; else if (r !== 'me') return;
+    } else if (!await fwConfirm('Retirer cette partie de ton téléphone ? (elle reste chez les autres joueurs)')) return;
     delete S.games[g.game.id];
     S.hidden.add(g.game.id); LS.set('fw_hidden', [...S.hidden]);
     S.queue = S.queue.filter(o => !(o.row && (o.row.game_id === g.game.id || o.row.id === g.game.id))); saveQueue();
@@ -1686,7 +1686,7 @@
   function shareText(text, url) {
     if (navigator.share) navigator.share({ text }).catch(() => { });
     else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Copié, colle-le dans WhatsApp'));
-    else prompt('Copie ce texte :', text);
+    else fwPrompt('Copie ce texte :', text);
   }
   function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
@@ -1785,9 +1785,9 @@
       <button class="btn big full" id="c-new">＋ Nouveau parcours</button>
       <p class="hint">Les parcours (notes, difficultés, GPS des greens) sont partagés avec tous ceux qui utilisent ton serveur.</p></main>`;
     updateSyncBadge();
-    $app.querySelector('#c-new').onclick = () => {
-      const name = prompt('Nom du parcours :'); if (!name) return;
-      const n = prompt('Nombre de trous (9 ou 18) :', '18') === '9' ? 9 : 18;
+    $app.querySelector('#c-new').onclick = async () => {
+      const name = await fwPrompt('Nom du parcours :'); if (!name) return;
+      const n = (await fwChoice('Nombre de trous ?', [['18', '18 trous'], ['9', '9 trous', 'ghost']])) === '9' ? 9 : 18;
       const id = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Math.random().toString(36).slice(2, 6);
       const c = { id, name, city: '', tees: [{ id: 'jaune', name: 'Jaune', sss: null, slope: 113 }, { id: 'rouge', name: 'Rouge', sss: null, slope: 113 }], holes: Array.from({ length: n }, (_, i) => ({ n: i + 1, par: 4, si: i + 1, dist: {} })) };
       saveCourse(c); location.hash = '#/course/' + encodeURIComponent(id);
@@ -1815,7 +1815,7 @@
       $app.querySelector('#ce-city').oninput = e => (c.city = e.target.value);
       $app.querySelectorAll('[data-t]').forEach(inp => inp.oninput = e => { const t = c.tees[+e.target.dataset.t]; const f = e.target.dataset.f; t[f] = f === 'name' ? e.target.value : (e.target.value === '' ? null : Number(e.target.value.replace(',', '.'))); });
       $app.querySelectorAll('[data-tdel]').forEach(b => b.onclick = () => { c.tees.splice(+b.dataset.tdel, 1); draw(); });
-      $app.querySelector('#ce-tadd').onclick = () => { const n = prompt('Nom du repère (ex. Blanc) :'); if (!n) return; c.tees.push({ id: n.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).slice(2, 4), name: n, sss: null, slope: 113 }); draw(); };
+      $app.querySelector('#ce-tadd').onclick = async () => { const n = await fwPrompt('Nom du repère (ex. Blanc) :'); if (!n) return; c.tees.push({ id: n.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).slice(2, 4), name: n, sss: null, slope: 113 }); draw(); };
       $app.querySelectorAll('[data-h]').forEach(inp => inp.oninput = e => {
         const h = c.holes[+e.target.dataset.h];
         if (e.target.dataset.d) { h.dist = h.dist || {}; h.dist[e.target.dataset.d] = e.target.value ? Number(e.target.value) : undefined; return; }
@@ -1823,10 +1823,10 @@
         if (f === 'note') h.note = e.target.value;
         else { const v = parseInt(e.target.value, 10); h[f] = isNaN(v) ? (f === 'difficulty' ? null : h[f]) : v; }
       });
-      $app.querySelector('#ce-save').onclick = () => {
+      $app.querySelector('#ce-save').onclick = async () => {
         const sis = c.holes.map(h => h.si).sort((a, b) => a - b).join();
         const expect = c.holes.map((_, i) => i + 1).join();
-        if (sis !== expect && !confirm('Les HCP (SI) ne vont pas de 1 à ' + c.holes.length + ' sans doublon. Enregistrer quand même ?')) return;
+        if (sis !== expect && !await fwConfirm('Les HCP (SI) ne vont pas de 1 à ' + c.holes.length + ' sans doublon. Enregistrer quand même ?')) return;
         saveCourse(c); toast('Parcours enregistré'); location.hash = '#/courses';
       };
       $app.querySelector('#ce-auto').onclick = () => { saveCourse(c); autoFlags(c.id).then(() => viewCourseEdit(encodeURIComponent(c.id))); };
@@ -1836,6 +1836,24 @@
   }
 
   /* --- Bienvenue (1re installation) --- */
+  /* ---------- Fenêtres de dialogue maison (sans l'adresse du site) ---------- */
+  function fwDialog(msg, { input = null, buttons }) {
+    return new Promise(res => {
+      const el = document.createElement('div'); el.className = 'modal fwdlg';
+      el.innerHTML = `<div class="sheet dlg"><p class="dlgmsg">${esc(msg).replace(/ ([?!:;])/g, '\u00a0$1').replace(/\n/g, '<br>')}</p>${input !== null ? `<input class="dlgin" value="${esc(input)}">` : ''}<div class="dlgbtns">${buttons.map((b, i) => `<button class="btn ${b[2] === 'ghost' ? 'ghost' : ''} ${b[2] === 'danger' ? 'danger' : ''}" data-i="${i}">${esc(b[1])}</button>`).join('')}</div></div>`;
+      document.body.appendChild(el);
+      const inp = el.querySelector('.dlgin');
+      const close = v => { el.remove(); res(v); };
+      el.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const bt = buttons[+b.dataset.i]; close(bt[0] === '__input' ? inp.value : bt[0]); });
+      el.onclick = e => { if (e.target === el) close(input !== null ? null : buttons[buttons.length - 1][0]); };
+      if (inp) { setTimeout(() => { inp.focus(); inp.select(); }, 50); inp.onkeydown = e => { if (e.key === 'Enter') close(inp.value); }; }
+    });
+  }
+  const fwAlert = msg => fwDialog(msg, { buttons: [[true, 'OK']] });
+  const fwConfirm = (msg, ok, danger, cancel) => fwDialog(msg, { buttons: [[true, ok || 'OK', danger ? 'danger' : ''], [false, cancel || 'Annuler', 'ghost']] });
+  const fwPrompt = (msg, def) => fwDialog(msg, { input: def == null ? '' : String(def), buttons: [['__input', 'OK'], [null, 'Annuler', 'ghost']] });
+  const fwChoice = (msg, opts) => fwDialog(msg, { buttons: opts });
+
   /* ---------- Inviter un nouveau + installation ---------- */
   const APP_URL = 'https://r4c4st.github.io/fairway/';
   const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
@@ -1858,7 +1876,7 @@
     return '';
   }
   async function promptInstall() {
-    if (!installEvt) return alert('Dans Chrome : menu ⋮ → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »).');
+    if (!installEvt) return fwAlert('Dans Chrome : menu ⋮ → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »).');
     installEvt.prompt();
     try { await installEvt.userChoice; } catch (e) { }
     installEvt = null; const b = document.getElementById('installbar'); if (b) b.remove();
@@ -1879,7 +1897,7 @@
     el.onclick = e => { if (e.target === el) el.remove(); };
     el.querySelector('#iv-share').onclick = async () => {
       if (navigator.share) { try { await navigator.share({ title: 'Fairway', text: msg }); return; } catch (e) { if (e.name === 'AbortError') return; } }
-      try { await navigator.clipboard.writeText(msg); toast('Lien copié 📋'); } catch (e) { prompt('Copie ce message :', msg); }
+      try { await navigator.clipboard.writeText(msg); toast('Lien copié 📋'); } catch (e) { fwPrompt('Copie ce message :', msg); }
     };
   }
 
@@ -1893,13 +1911,13 @@
       ${!remoteOn() ? '<p class="hint">Serveur non configuré : profil gardé sur ce téléphone seulement.</p>' : ''}</main>`;
     { const ib = $app.querySelector('#installbar'); if (ib) ib.onclick = promptInstall; }
     $app.querySelector('#w-go').onclick = async () => {
-      const n = $app.querySelector('#w-name').value.trim(); if (!n) return alert('Ton prénom ?');
+      const n = $app.querySelector('#w-name').value.trim(); if (!n) return fwAlert('Ton prénom ?');
       // même prénom déjà inscrit ? c'est peut-être toi sur un autre appareil
-      if (remoteOn()) { try { const { data } = await sb.from('profiles').select('device_id').ilike('name', n).neq('device_id', S.me.deviceId).limit(1); if (data && data.length && confirm('Un copain « ' + n + ' » est déjà inscrit.\nC\'est toi sur un autre appareil (téléphone, PC…) ?\n\nOK = saisir mon code profil · Annuler = c\'est quelqu\'un d\'autre')) { $app.querySelector('#w-restore').click(); return; } } catch (e) { } }
+      if (remoteOn()) { try { const { data } = await sb.from('profiles').select('device_id').ilike('name', n).neq('device_id', S.me.deviceId).limit(1); if (data && data.length && await fwConfirm('Un copain « ' + n + ' » est déjà inscrit.\nC\'est toi sur un autre appareil (téléphone, PC…) ?', 'Oui, c\'est moi', false, 'Non, quelqu\'un d\'autre')) { $app.querySelector('#w-restore').click(); return; } } catch (e) { } }
       S.me.name = n; S.me.index = $app.querySelector('#w-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#w-tee').value;
       syncProfile(); route();
     };
-    $app.querySelector('#w-restore').onclick = async () => { const c = prompt('Code de ton profil (Profil > Mon code) :'); if (!c) return; try { await restoreProfile(c); toast('Re-bonjour ' + S.me.name + ' 👋'); route(); } catch (e) { alert(e.message); } };
+    $app.querySelector('#w-restore').onclick = async () => { const c = await fwPrompt('Code de ton profil (Profil > Mon code) :'); if (!c) return; try { await restoreProfile(c); toast('Re-bonjour ' + S.me.name + ' 👋'); route(); } catch (e) { fwAlert(e.message); } };
   }
 
   /* --- Profil & serveur --- */
@@ -1951,8 +1969,8 @@
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
-    $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return alert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
-    $app.querySelector('#p-restore').onclick = async () => { const c = prompt('Code de ton profil :'); if (!c) return; try { await restoreProfile(c); toast('Profil récupéré 👍'); viewProfile(); } catch (e) { alert(e.message); } };
+    $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return fwAlert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
+    $app.querySelector('#p-restore').onclick = async () => { const c = await fwPrompt('Code de ton profil :'); if (!c) return; try { await restoreProfile(c); toast('Profil récupéré 👍'); viewProfile(); } catch (e) { fwAlert(e.message); } };
     $app.querySelector('#p-save').onclick = () => {
       S.me.name = $app.querySelector('#p-name').value.trim(); S.me.index = $app.querySelector('#p-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#p-tee').value;
       $app.querySelectorAll('[data-b]').forEach(inp => { S.me.bag[+inp.dataset.b].dist = Number(inp.value) || 0; });
@@ -1972,7 +1990,7 @@
     };
     $app.querySelector('#p-imp').onchange = e => {
       const f = e.target.files[0]; if (!f) return; const r = new FileReader();
-      r.onload = () => { try { const d = JSON.parse(r.result); if (d.courses) Object.assign(S.customCourses, d.courses); if (d.games) Object.assign(S.games, d.games); if (d.me) S.me = { ...d.me, deviceId: d.me.deviceId || S.me.deviceId }; saveCourses(); saveGames(); saveMe(); toast('Données importées'); viewProfile(); } catch (err) { alert('Fichier invalide'); } };
+      r.onload = () => { try { const d = JSON.parse(r.result); if (d.courses) Object.assign(S.customCourses, d.courses); if (d.games) Object.assign(S.games, d.games); if (d.me) S.me = { ...d.me, deviceId: d.me.deviceId || S.me.deviceId }; saveCourses(); saveGames(); saveMe(); toast('Données importées'); viewProfile(); } catch (err) { fwAlert('Fichier invalide'); } };
       r.readAsText(f);
     };
   }
