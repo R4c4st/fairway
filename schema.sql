@@ -152,3 +152,7 @@ notify pgrst, 'reload schema';
 -- Classement de la saison (opt-in)
 alter table public.profiles add column if not exists season boolean not null default false;
 notify pgrst, 'reload schema';
+
+-- Signataire d'un événement (appareil), pour le fair-play du Fly Tour
+alter table public.events add column if not exists by_dev text;
+notify pgrst, 'reload schema';

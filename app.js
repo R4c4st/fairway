@@ -523,7 +523,7 @@
   /* ---------- Moments forts ---------- */
   function addEvent(gid, ev) {
     const g = S.games[gid];
-    const row = { id: uid(), game_id: gid, by_name: S.me.name || '?', created_at: new Date().toISOString(), ...ev };
+    const row = { id: uid(), game_id: gid, by_name: S.me.name || '?', by_dev: S.me.deviceId, created_at: new Date().toISOString(), ...ev };
     g.events = g.events || []; g.events.push(row); saveGames();
     markSeen(row.id);
     push({ t: 'upsert', table: 'events', row });
@@ -2047,10 +2047,10 @@
       // Nice shots « fair-play » : comptent seulement s'ils viennent d'un autre joueur, 1 par trou, 3 max par partie
       const norm = x => (x || '').trim().toLowerCase();
       const recvd = []; const seenH = new Set();
-      ev.filter(e => e.player_id === p.id && !['rouge', 'react', 'tournee'].includes(e.type) && norm(e.by_name) && norm(e.by_name) !== norm(p.name)).forEach(e => { if (!seenH.has(e.hole)) { seenH.add(e.hole); recvd.push(e); } });
+      ev.filter(e => e.player_id === p.id && !['rouge', 'react', 'tournee'].includes(e.type) && (e.by_dev ? e.by_dev !== p.device_id : norm(e.by_name) && norm(e.by_name) !== norm(p.name))).forEach(e => { if (!seenH.has(e.hole)) { seenH.add(e.hole); recvd.push(e); } });
       recvd.slice(0, 3).forEach(e => add(e.hole || holes[0], 'Nice shots reçus', 2));
       const given = []; const seenG = new Set();
-      ev.filter(e => !['rouge', 'react', 'tournee'].includes(e.type) && norm(e.by_name) === norm(p.name) && e.player_id && e.player_id !== p.id).forEach(e => { const k = e.player_id + ':' + e.hole; if (!seenG.has(k)) { seenG.add(k); given.push(e); } });
+      ev.filter(e => !['rouge', 'react', 'tournee'].includes(e.type) && (e.by_dev ? e.by_dev === p.device_id : norm(e.by_name) === norm(p.name)) && e.player_id && e.player_id !== p.id).forEach(e => { const k = e.player_id + ':' + e.hole; if (!seenG.has(k)) { seenG.add(k); given.push(e); } });
       given.slice(0, 3).forEach(e => add(e.hole || holes[0], 'Nice shots donnés', 1));
       Object.values(B).forEach(b => { if (b.n >= b.holes.length && b.holes.length) { b.pts += 5; b.det['Participation'] = (b.det['Participation'] || 0) + 5; } });
       out[p.device_id] = { name: p.name, blocks: Object.values(B).filter(b => b.n >= b.holes.length && b.holes.length) };
