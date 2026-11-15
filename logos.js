@@ -24,6 +24,6 @@ window.FW_LOGOS = {
 window.FW_LOGO_NAMES = { pro_f: 'Drapeau pro', pro_balle: 'Balle & tee', fairway: 'Fairway', chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
 window.fwLogoURL = (style, palette) => {
   const p = window.FW_PALETTES[palette] || window.FW_PALETTES.vert;
-  const f = window.FW_LOGOS[style] || window.FW_LOGOS.pro_f;
+  const f = window.FW_LOGOS[style] || window.FW_LOGOS.pro_balle;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f(p.g, p.gd));
 };

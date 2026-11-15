@@ -49,8 +49,9 @@
   applyBig();
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   if (!S.me.color) S.me.color = 'vert';
-  if (!S.me.logo || !S.me.logoV2) { S.me.logo = 'pro_f'; S.me.logoV2 = 1; }
-  if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'pro_f';
+  if (!S.me.logo || !S.me.logoV2) { S.me.logo = 'pro_balle'; S.me.logoV2 = 1; }
+  if (!S.me.logoV3) { if (S.me.logo === 'pro_f') S.me.logo = 'pro_balle'; S.me.logoV3 = 1; }
+  if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'pro_balle';
   if (window.FW_PALETTES && !window.FW_PALETTES[S.me.color]) S.me.color = 'vert';
   const logoURL = () => window.fwLogoURL ? window.fwLogoURL(S.me.logo, S.me.color) : 'icon.svg';
   function applyTheme() {
