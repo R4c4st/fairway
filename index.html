@@ -617,6 +617,9 @@ main.home .hcard{padding:5px 12px}main.home .hdate{min-width:34px;padding:3px 0}
 .tile.live #livecount{z-index:2}
 html[data-theme=dark] .tile.new,html[data-theme=dark] .tile.live{background:linear-gradient(135deg,#1d7a3e,#14532d 60%,#196b37)!important;border-color:#0f3f22!important}
 @media (prefers-reduced-motion:reduce){.tile.new:after,.tile.live:after{display:none}}
+.sstrip{position:relative;overflow:hidden}.sstrip>*{position:relative;z-index:1}
+.sstrip:after{content:'';position:absolute;top:-60%;bottom:-60%;left:-60%;width:30%;z-index:0;pointer-events:none;background:linear-gradient(100deg,#fff0 0%,#ffffff33 45%,#ffffff1f 55%,#fff0 100%);transform:skewX(-18deg);animation:trshine 4.5s ease-in-out .8s infinite}
+@media (prefers-reduced-motion:reduce){.sstrip:after{display:none}}
 </style>
 </head>
 <body>
