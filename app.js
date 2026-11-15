@@ -978,7 +978,7 @@
       ${open.map(card).join('')}
       <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${potes.length ? '<h2>👥 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
-      ${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
+      ${done.length ? done.slice(0, 3).map(histCard).join('') : '<p class="muted">Aucune partie terminée.</p>'}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
       ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>QR code pour installer Fly18 ou rejoindre ta partie</small></div><span>›</span></button>` : ''}
@@ -2128,7 +2128,7 @@
     if (!data || data.month !== monthKey(today())) return '';
     const rows = data.cur; const i = rows.findIndex(r => r.dev === S.me.deviceId);
     const [y, m] = data.month.split('-').map(Number); const left = new Date(y, m, 0).getDate() - new Date().getDate();
-    const lbl = 'Fly Tour · étape de ' + MOIS[m - 1];
+    const lbl = 'Fly Tour · ' + MOIS[m - 1];
     if (i < 0) return `<a class="sstrip" href="#/classement"><span class="rk">–</span><div><b>${lbl}</b><small>${rows.length ? 'Joue une partie pour entrer dans l\'étape' : 'Pas encore de points ce mois-ci'}</small></div><div class="pts"><b>0</b><small>pt</small></div></a>`;
     const me = rows[i]; const ahead = i > 0 ? rows[i - 1] : null;
     const sub = ahead ? `à ${ahead.pts - me.pts} pt${ahead.pts - me.pts > 1 ? 's' : ''} de ${esc(ahead.name)}` : (rows.length > 1 ? `${me.pts - rows[1].pts} pt${me.pts - rows[1].pts > 1 ? 's' : ''} d'avance` : 'en tête');
