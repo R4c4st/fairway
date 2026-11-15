@@ -49,7 +49,7 @@
   applyBig();
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   if (!S.me.color) S.me.color = 'vert';
-  if (!S.me.logo) S.me.logo = 'drapeau';
+  if (!S.me.logo) S.me.logo = 'fairway';
   if (window.FW_PALETTES && !window.FW_PALETTES[S.me.color]) S.me.color = 'vert';
   const logoURL = () => window.fwLogoURL ? window.fwLogoURL(S.me.logo, S.me.color) : 'icon.svg';
   function applyTheme() {
@@ -319,6 +319,70 @@
     return out;
   }
   const chipHtml = (m, on, attr) => `<button ${attr}="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${on ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`;
+
+  /* ---------- Météo (Open-Meteo, sans clé) ---------- */
+  const WX_ICONS = {
+    sun: '<circle cx="32" cy="32" r="11" fill="#FFC531"/><g stroke="#FFC531" stroke-width="4" stroke-linecap="round"><path d="M32 8v6M32 50v6M8 32h6M50 32h6M15 15l4 4M45 45l4 4M15 49l4-4M45 19l4-4"/></g>',
+    moon: '<path d="M40 12a20 20 0 1 0 12 30A16 16 0 0 1 40 12z" fill="#ffd970"/>',
+    cloud: '<path d="M20 48h26a10 10 0 0 0 0-20 14 14 0 0 0-27-3 11 11 0 0 0 1 23z" fill="#cfd8e3"/>',
+    part: '<circle cx="24" cy="22" r="9" fill="#FFC531"/><g stroke="#FFC531" stroke-width="3.5" stroke-linecap="round"><path d="M24 5v4M7 22h4M12 10l3 3M36 10l-3 3"/></g><path d="M22 52h24a9 9 0 0 0 0-18 13 13 0 0 0-25-2 10 10 0 0 0 1 20z" fill="#e4eaf1" stroke="#c4cfdb" stroke-width="1.5"/>',
+    rain: '<path d="M18 38h28a10 10 0 0 0 0-20 14 14 0 0 0-27-3 11 11 0 0 0-1 23z" fill="#9fb0c3"/><g stroke="#3d8bfd" stroke-width="3.5" stroke-linecap="round"><path d="M22 44l-3 8M33 44l-3 8M44 44l-3 8"/></g>',
+    snow: '<path d="M18 38h28a10 10 0 0 0 0-20 14 14 0 0 0-27-3 11 11 0 0 0-1 23z" fill="#c3cfdb"/><g fill="#8fc3ff"><circle cx="22" cy="48" r="3"/><circle cx="32" cy="54" r="3"/><circle cx="42" cy="48" r="3"/></g>',
+    storm: '<path d="M18 36h28a10 10 0 0 0 0-20 14 14 0 0 0-27-3 11 11 0 0 0-1 23z" fill="#7d8b9c"/><path d="M34 36l-8 12h7l-4 10 12-15h-7l4-7z" fill="#FFC531"/>',
+    fog: '<path d="M20 34h26a10 10 0 0 0 0-20 14 14 0 0 0-27-3 11 11 0 0 0 1 23z" fill="#cfd8e3"/><g stroke="#aab6c3" stroke-width="3.5" stroke-linecap="round"><path d="M12 42h40M18 50h32"/></g>'
+  };
+  function wxKind(code, day) {
+    if (code === 0 || code === 1) return [day ? 'sun' : 'moon', code ? 'Plutôt beau' : (day ? 'Grand soleil' : 'Ciel dégagé')];
+    if (code === 2) return ['part', 'Éclaircies'];
+    if (code === 3) return ['cloud', 'Couvert'];
+    if (code === 45 || code === 48) return ['fog', 'Brouillard'];
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return ['snow', 'Neige'];
+    if (code >= 95) return ['storm', 'Orage'];
+    if ([51, 53, 55, 56, 57].includes(code)) return ['rain', 'Bruine'];
+    return ['rain', 'Pluie'];
+  }
+  const wxIcon = (code, day, cls) => `<svg class="${cls || ''}" viewBox="0 0 64 64">${WX_ICONS[wxKind(code, day)[0]]}</svg>`;
+  function wxNext(w) {
+    if (!w.rainAt) return w.q ? '<div class="wx-alert ok">☀️ Pas de pluie prévue dans les 2 prochaines heures</div>' : '';
+    const mins = Math.round((w.rainAt - Date.now()) / 60000);
+    const txt = mins <= 10 ? 'Pluie en cours ou imminente' : 'Pluie prévue vers ' + new Date(w.rainAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ' (dans ~' + (mins >= 60 ? Math.floor(mins / 60) + ' h ' + String(mins % 60).padStart(2, '0') : mins + ' min') + ')';
+    return `<div class="wx-alert">🌧️ ${txt}</div>`;
+  }
+  function wxHtml(w, open) {
+    const [, label] = wxKind(w.code, w.day);
+    const head = `<div class="wx-row"><div class="wx-ic">${wxIcon(w.code, w.day)}</div><div class="wx-main"><b>${Math.round(w.t)}°</b><span>${label}</span></div><div class="wx-side"><small>↑ ${Math.round(w.max)}° ↓ ${Math.round(w.min)}°</small><small>💨 ${Math.round(w.wind)} km/h</small><small>💧 ${w.rain}%</small></div></div>`;
+    if (!open) return head + '<div class="wx-hint">Touche pour actualiser et voir les prochaines heures</div>';
+    const hrs = (w.hours || []).map(h => `<div class="wx-h"><small>${h.h}h</small>${wxIcon(h.code, h.day, 'mini')}<b>${Math.round(h.t)}°</b><small class="${h.p >= 50 ? 'wet' : ''}">${h.p}%</small></div>`).join('');
+    return head + wxNext(w) + (hrs ? `<div class="wx-hours">${hrs}</div>` : '') + `<div class="wx-hint">Mis à jour à ${new Date(w.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · touche pour actualiser</div>`;
+  }
+  let wxOpen = false, wxBusy = false;
+  function loadWeather(force) {
+    const el = document.getElementById('wx'); if (!el) return;
+    const show = w => { const e = document.getElementById('wx'); if (e && w) { e.innerHTML = wxHtml(w, wxOpen); e.hidden = false; e.classList.toggle('busy', wxBusy); } };
+    if (!el.onclick) el.onclick = () => { if (wxBusy) return; wxOpen = true; loadWeather(true); };
+    const cached = LS.get('fw_wx', null);
+    if (cached) show(cached);
+    if (!force && cached && Date.now() - cached.at < 30 * 60000) return;
+    if (!navigator.geolocation || !navigator.onLine) { if (force) toast('Pas de connexion'); return; }
+    wxBusy = true; el.classList.add('busy');
+    const done = () => { wxBusy = false; const e = document.getElementById('wx'); if (e) e.classList.remove('busy'); };
+    navigator.geolocation.getCurrentPosition(p => {
+      const lat = p.coords.latitude.toFixed(3), lng = p.coords.longitude.toFixed(3);
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,is_day&minutely_15=precipitation&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=2&forecast_minutely_15=8`, { cache: 'no-store' })
+        .then(r => r.json()).then(d => {
+          if (!d.current) return;
+          const off = (d.utc_offset_seconds || 0) * 1000;
+          const toMs = t => Date.parse(t + 'Z') - off; // heure locale du lieu → instant
+          const now = Date.now();
+          let rainAt = null;
+          if (d.minutely_15) d.minutely_15.time.forEach((t, i) => { const ms = toMs(t); if (!rainAt && ms + 15 * 60000 >= now && (d.minutely_15.precipitation[i] || 0) >= 0.1) rainAt = Math.max(ms, now); });
+          const hours = [];
+          if (d.hourly) d.hourly.time.forEach((t, i) => { const ms = toMs(t); if (ms > now - 30 * 60000 && hours.length < 6) hours.push({ h: t.slice(11, 13).replace(/^0/, ''), t: d.hourly.temperature_2m[i], code: d.hourly.weather_code[i], day: !!d.hourly.is_day[i], p: d.hourly.precipitation_probability[i] ?? 0 }); });
+          const w = { at: now, q: true, t: d.current.temperature_2m, code: d.current.weather_code, day: !!d.current.is_day, wind: d.current.wind_speed_10m, max: d.daily.temperature_2m_max[0], min: d.daily.temperature_2m_min[0], rain: d.daily.precipitation_probability_max[0] ?? 0, rainAt, hours };
+          LS.set('fw_wx', w); done(); show(w);
+        }).catch(() => { done(); if (force) toast('Météo indisponible'); });
+    }, () => { done(); if (force) toast('Localisation refusée'); }, { enableHighAccuracy: false, maximumAge: force ? 60000 : 600000, timeout: 15000 });
+  }
 
   /* ---------- Détection d'arrivée au golf (appli ouverte) ---------- */
   let detectTimer = null;
@@ -699,6 +763,7 @@
     $app.innerHTML = topbar('Fairway') + `<main>
       <section class="hello"><div><b>${esc(S.me.name || 'Golfeur')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></div><a class="btn ghost sm" href="#/profile">Profil</a></section>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
+      <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
       <div class="row2"><a class="btn big" href="#/new">＋ Nouvelle partie</a><button class="btn big ghost" data-act="join">Rejoindre</button></div>
       <a class="btn big full live" href="#/live">📺 Live <span id="livecount"></span></a>
@@ -710,6 +775,7 @@
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = '· ' + list.length + ' partie' + (list.length > 1 ? 's' : '') + ' en cours'; });
     refreshOnlineUI();
+    loadWeather();
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
 

@@ -6,6 +6,8 @@ window.FW_PALETTES = {
 };
 
 window.FW_LOGOS = {
+  // 0. Fairway + drapeau rouge (logo d'origine)
+  fairway: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${d}"/><ellipse cx="256" cy="392" rx="170" ry="52" fill="${c}"/><ellipse cx="256" cy="392" rx="170" ry="52" fill="#fff" opacity=".12"/><ellipse cx="292" cy="392" rx="22" ry="8" fill="#000" opacity=".5"/><rect x="284" y="110" width="14" height="284" rx="7" fill="#f4f4f4"/><path d="M298 112 L420 160 L298 208 Z" fill="#e8272b"/><circle cx="190" cy="356" r="30" fill="#fff"/><circle cx="182" cy="348" r="4" fill="#d4d4d4"/><circle cx="198" cy="350" r="4" fill="#d4d4d4"/><circle cx="190" cy="364" r="4" fill="#d4d4d4"/></svg>`,
   // 1. Chope + drapeau (actuel)
   chope: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${d}"/></linearGradient><linearGradient id="be" x1="0" x2="1"><stop offset="0" stop-color="#e99a00"/><stop offset=".45" stop-color="#ffc83d"/><stop offset="1" stop-color="#d98a00"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#bg)"/><ellipse cx="256" cy="452" rx="210" ry="44" fill="#fff" opacity=".12"/><rect x="300" y="64" width="12" height="232" rx="6" fill="#f4f4f4"/><path d="M312 68 Q370 82 420 76 Q392 104 418 132 Q366 126 312 140 Z" fill="#e8272b"/><path d="M352 236 Q420 236 420 304 Q420 372 352 372" fill="none" stroke="#f4f4f4" stroke-width="26" stroke-linecap="round"/><path d="M132 222 L364 222 L352 428 Q244 446 144 428 Z" fill="url(#be)"/><g fill="#fff" opacity=".55"><circle cx="196" cy="380" r="7"/><circle cx="226" cy="336" r="5"/><circle cx="292" cy="392" r="6"/><circle cx="270" cy="300" r="4"/></g><path d="M132 222 L364 222 L352 428 Q244 446 144 428 Z" fill="none" stroke="#f4f4f4" stroke-width="10" stroke-linejoin="round"/><g fill="#fffaf0"><circle cx="150" cy="222" r="34"/><circle cx="198" cy="204" r="40"/><circle cx="252" cy="200" r="38"/><circle cx="304" cy="208" r="36"/><circle cx="350" cy="224" r="30"/><rect x="124" y="214" width="250" height="38" rx="18"/></g><circle cx="226" cy="186" r="30" fill="#fff" stroke="#c9ced2" stroke-width="2"/><g fill="#c4c9cd"><circle cx="214" cy="176" r="3.2"/><circle cx="228" cy="172" r="3.2"/><circle cx="240" cy="180" r="3.2"/><circle cx="220" cy="190" r="3.2"/><circle cx="234" cy="194" r="3.2"/></g></svg>`,
   // 2. Deux chopes qui trinquent
@@ -15,9 +17,9 @@ window.FW_LOGOS = {
   // 4. Monogramme F + balle
   monogramme: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${d}"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#bg)"/><path d="M168 400 V120 H340 M168 250 H300" fill="none" stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/><circle cx="362" cy="372" r="46" fill="#fff"/><g fill="#c4c9cd"><circle cx="348" cy="358" r="5"/><circle cx="368" cy="352" r="5"/><circle cx="380" cy="372" r="5"/><circle cx="356" cy="380" r="5"/><circle cx="372" cy="392" r="5"/></g><path d="M330 300 q16 -26 40 -8" fill="none" stroke="#ffc83d" stroke-width="10" stroke-linecap="round"/></svg>`
 };
-window.FW_LOGO_NAMES = { chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
+window.FW_LOGO_NAMES = { fairway: 'Fairway', chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
 window.fwLogoURL = (style, palette) => {
   const p = window.FW_PALETTES[palette] || window.FW_PALETTES.vert;
-  const f = window.FW_LOGOS[style] || window.FW_LOGOS.drapeau;
+  const f = window.FW_LOGOS[style] || window.FW_LOGOS.fairway;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f(p.g, p.gd));
 };
