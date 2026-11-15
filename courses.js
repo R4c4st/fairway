@@ -35,6 +35,38 @@ window.BUILTIN_COURSES = [
       { n: 17, par: 4, si: 14, dist: { blanc: 288, jaune: 288, bleu: 248, rouge: 248 } },
       { n: 18, par: 5, si: 10, dist: { blanc: 420, jaune: 370, bleu: 370, rouge: 324 } }
     ]
+  },
+  {
+    id: 'metz-technopole',
+    name: 'UGOLF Metz Technopole',
+    city: 'Metz (57)',
+    center: { lat: 49.09951, lng: 6.22498 },
+    tees: [
+      { id: 'blanc', name: 'Blanc', color: '#f4f4f4', sss: null, slope: 121 },
+      { id: 'jaune', name: 'Jaune', color: '#f2c200', sss: null, slope: 118 },
+      { id: 'bleu', name: 'Bleu', color: '#2f6fd6', sss: null, slope: 127 },
+      { id: 'rouge', name: 'Rouge', color: '#d83a3a', sss: null, slope: 118 }
+    ],
+    holes: [
+      { n: 1, par: 4, si: 10, dist: { blanc: 377, jaune: 343, bleu: 312, rouge: 306 } },
+      { n: 2, par: 3, si: 4, dist: { blanc: 199, jaune: 177, bleu: 160, rouge: 160 } },
+      { n: 3, par: 5, si: 14, dist: { blanc: 456, jaune: 438, bleu: 429, rouge: 415 } },
+      { n: 4, par: 4, si: 8, dist: { blanc: 359, jaune: 341, bleu: 319, rouge: 305 } },
+      { n: 5, par: 4, si: 2, dist: { blanc: 368, jaune: 348, bleu: 329, rouge: 329 } },
+      { n: 6, par: 4, si: 6, dist: { blanc: 348, jaune: 315, bleu: 283, rouge: 283 } },
+      { n: 7, par: 3, si: 12, dist: { blanc: 155, jaune: 149, bleu: 138, rouge: 138 } },
+      { n: 8, par: 5, si: 18, dist: { blanc: 486, jaune: 454, bleu: 431, rouge: 409 } },
+      { n: 9, par: 3, si: 16, dist: { blanc: 110, jaune: 110, bleu: 98, rouge: 98 } },
+      { n: 10, par: 5, si: 17, dist: { blanc: 439, jaune: 419, bleu: 402, rouge: 384 } },
+      { n: 11, par: 4, si: 13, dist: { blanc: 261, jaune: 249, bleu: 224, rouge: 214 } },
+      { n: 12, par: 3, si: 7, dist: { blanc: 168, jaune: 147, bleu: 134, rouge: 133 } },
+      { n: 13, par: 4, si: 9, dist: { blanc: 291, jaune: 281, bleu: 271, rouge: 255 } },
+      { n: 14, par: 5, si: 11, dist: { blanc: 525, jaune: 507, bleu: 494, rouge: 469 } },
+      { n: 15, par: 4, si: 1, dist: { blanc: 385, jaune: 358, bleu: 340, rouge: 322 } },
+      { n: 16, par: 4, si: 3, dist: { blanc: 363, jaune: 346, bleu: 329, rouge: 325 } },
+      { n: 17, par: 4, si: 15, dist: { blanc: 296, jaune: 271, bleu: 271, rouge: 268 } },
+      { n: 18, par: 3, si: 5, dist: { blanc: 188, jaune: 178, bleu: 165, rouge: 152 } }
+    ]
   }
 ];
 
