@@ -597,7 +597,7 @@ html[data-theme=dark] .tile.trt{background:#2a2410;border-color:#6b5512;color:#f
 .wx.compact{padding:6px 12px}.wx.compact .wx-hint{display:none}.wx.compact .wx-row{gap:10px}
 .wx.compact .wx-ic svg{width:34px;height:34px}.wx.compact .wx-main{flex-direction:row;align-items:baseline;gap:8px}.wx.compact .wx-main b{font-size:22px}
 .wx.compact .wx-side{flex-direction:row;gap:10px}.wx.compact .wx-side small{font-size:12px}
-main.home{display:flex;flex-direction:column;min-height:calc(100dvh - 64px - env(safe-area-inset-top));padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}main.home>.tiles,main.home>.row3{flex:none}
+#app:has(main.home){display:flex;flex-direction:column;min-height:100dvh}main.home{flex:1 0 auto;width:100%;box-sizing:border-box;display:flex;flex-direction:column;padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}main.home>.tiles,main.home>.row3{flex:none}
 .copy{font-size:11px;color:var(--mu);opacity:.7;margin:auto 2px 0;padding-top:14px;letter-spacing:.02em}
 .tile.trt{overflow:hidden;background:linear-gradient(135deg,#fff8dc 0%,#ffe9a6 45%,#fff6d6 60%,#f9dc85 100%)!important;border-color:#e8b931!important;box-shadow:inset 0 1px 0 #fff9,0 2px 8px #d9a00022}
 .tile.trt>*{position:relative;z-index:1}
@@ -606,6 +606,12 @@ main.home{display:flex;flex-direction:column;min-height:calc(100dvh - 64px - env
 @keyframes trshine{0%,55%{left:-60%}85%,100%{left:130%}}
 html[data-theme=dark] .tile.trt{background:linear-gradient(135deg,#3a2f0e,#5a4614 50%,#3a2f0e)!important;border-color:#8a6a14!important}
 @media (prefers-reduced-motion:reduce){.tile.trt:after{animation:none;display:none}}
+.encard{border-color:#22a052;box-shadow:0 0 0 1px #22a05233}
+.encours{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#16803f;margin-bottom:2px}
+.encours:before{content:'';width:7px;height:7px;border-radius:50%;background:#22a052;animation:encp 1.6s ease-in-out infinite}
+@keyframes encp{50%{opacity:.3}}
+main.home{gap:10px}main.home>*:not(.copy){margin-top:0!important;margin-bottom:0!important}main.home>:empty{display:none}
+main.home #sstrip .sstrip,main.home .hcard,main.home .invbar{margin:0}main.home .copy{margin-top:auto;padding-top:4px}
 </style>
 </head>
 <body>

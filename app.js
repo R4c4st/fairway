@@ -944,7 +944,7 @@
     if (g.game.format === 'combo') { const r = comboResult(g); const mt = myTeam(g); if (r) { const i = mt ? r.tps.findIndex(t => t.id === mt.id) : 0; sc = fmtPts(r.pts[Math.max(i, 0)]) + ' – ' + fmtPts(r.pts[i === 1 ? 0 : 1]); } }
     else if (g.game.format === 'scramble') { const t = myTeam(g) || teamPlayers(g)[0]; if (t) { s = C.playerSummary(t, phaseGame(g, 'scr'), gameCourse(g), scoresOf(g)[t.id] || {}); if (s.played) sc = 'net ' + fmtPar(s.netToPar); } }
     else { const p = myPlayer(g) || g.players[0]; s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null; if (s && s.played) sc = g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')'; }
-    return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
+    return `<a class="gcard encard" href="#/game/${g.game.id}"><div><span class="encours">En cours</span><b>${esc(g.game.course.name)}</b><small>${FORMATS[g.game.format]} · ${MODES[g.game.mode]}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
   };
   // historique : tuile compacte (date, lieu, score), touche pour déplier / replier
   const histCard = g => {
@@ -976,7 +976,7 @@
       <div id="online"></div>
       ${installBar()}
       <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
-      ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
+      ${open.map(card).join('')}
       ${potes.length ? '<h2>👥 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       ${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
