@@ -422,6 +422,22 @@ html[data-big] .act{min-height:54px;font-size:17px}
 .beerbtn{background:none;border:0;padding:0;margin:0;cursor:pointer;display:inline-flex;vertical-align:middle;transition:transform .15s}
 .beerbtn .ic{width:1.6em;height:1.6em;vertical-align:0}
 .beerbtn:active{transform:scale(.88) rotate(-12deg)}
+.morelink{display:block;text-align:center;font-size:14px;color:var(--g);font-weight:600;text-decoration:none;margin:2px 0 6px}
+.hyear{font-size:13px;font-weight:800;color:var(--mu);letter-spacing:.08em;margin:14px 0 6px}
+.motile{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:8px;overflow:hidden}
+.mohead{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.mohead b{flex:1;font-size:16px;color:var(--tx)}.mohead span{color:var(--mu);font-size:14px}
+.motile.open .mohead .hchev{transform:rotate(90deg)}
+.molist{display:none;padding:0 8px 8px}.motile.open .molist{display:block}
+.molist .hcard{background:var(--bg)}
+.histall{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin:16px 0 10px;overflow:hidden}
+.hahead{display:flex;align-items:center;gap:10px;padding:14px;cursor:pointer}
+.hahead b{flex:1;font-size:16px;color:var(--tx)}.hahead span{color:var(--mu);font-size:14px}
+.histall.open>.hahead .hchev{transform:rotate(90deg)}
+.habody{display:none;padding:0 10px 10px}.histall.open>.habody{display:block}
+.habody .hyear{margin-top:4px}
+.habody .motile{background:var(--bg)}
+.habody .molist .hcard{background:var(--card)}
 </style>
 </head>
 <body>

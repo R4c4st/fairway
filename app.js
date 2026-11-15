@@ -775,28 +775,31 @@
     rounds.sort((a, b) => (b.g.game.play_date || '').localeCompare(a.g.game.play_date || '') || (b.g.game.created_at || '').localeCompare(a.g.game.created_at || ''));
     return rounds;
   }
+  const card = g => {
+    let s = null, sc = '—';
+    if (g.game.format === 'combo') { const r = comboResult(g); const mt = myTeam(g); if (r) { const i = mt ? r.tps.findIndex(t => t.id === mt.id) : 0; sc = fmtPts(r.pts[Math.max(i, 0)]) + ' – ' + fmtPts(r.pts[i === 1 ? 0 : 1]); } }
+    else if (g.game.format === 'scramble') { const t = myTeam(g) || teamPlayers(g)[0]; if (t) { s = C.playerSummary(t, phaseGame(g, 'scr'), gameCourse(g), scoresOf(g)[t.id] || {}); if (s.played) sc = 'net ' + fmtPar(s.netToPar); } }
+    else { const p = myPlayer(g) || g.players[0]; s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null; if (s && s.played) sc = g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')'; }
+    return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
+  };
+  // historique : tuile compacte (date, lieu, score), touche pour déplier / replier
+  const histCard = g => {
+    const full = card(g);
+    const sc = (full.match(/<div class="gscore">([\s\S]*?)<small>/) || [])[1] || '—';
+    const hl = (full.match(/<div class="gscore">[\s\S]*?<small>([\s\S]*?)<\/small>/) || [])[1] || '';
+    const who = isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ');
+    const d = new Date(g.game.play_date + 'T12:00');
+    return `<div class="hcard" data-hx="${g.game.id}"><div class="hrow"><span class="hdate"><b>${d.getDate()}</b><small>${d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}</small></span><span class="hcourse">${esc(g.game.course.name)}</span><span class="hsc">${sc}</span><span class="hchev">›</span></div>
+      <div class="hmore"><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}${hl ? ' · ' + hl + ' joués' : ''}</small><small>${who}</small><a class="btn ghost sm" href="#/game/${g.game.id}">Voir la partie ›</a></div></div>`;
+  };
+  const bindHist = root => root.querySelectorAll('[data-hx]').forEach(c => c.onclick = e => { if (e.target.closest('a')) return; c.classList.toggle('open'); });
+  const histGames = () => Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
+
   function viewHome() {
     const rounds = myRoundStats();
     const potes = Object.values(S.games).filter(g => g.follow).sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
     const open = Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done').sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
     const done = Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
-    const card = g => {
-      let s = null, sc = '—';
-      if (g.game.format === 'combo') { const r = comboResult(g); const mt = myTeam(g); if (r) { const i = mt ? r.tps.findIndex(t => t.id === mt.id) : 0; sc = fmtPts(r.pts[Math.max(i, 0)]) + ' – ' + fmtPts(r.pts[i === 1 ? 0 : 1]); } }
-      else if (g.game.format === 'scramble') { const t = myTeam(g) || teamPlayers(g)[0]; if (t) { s = C.playerSummary(t, phaseGame(g, 'scr'), gameCourse(g), scoresOf(g)[t.id] || {}); if (s.played) sc = 'net ' + fmtPar(s.netToPar); } }
-      else { const p = myPlayer(g) || g.players[0]; s = p ? C.playerSummary(p, g.game, gameCourse(g), scoresOf(g)[p.id] || {}) : null; if (s && s.played) sc = g.game.format === 'stableford' ? s.points + ' pts' : s.gross + ' (' + fmtPar(s.toPar) + ')'; }
-      return `<a class="gcard" href="#/game/${g.game.id}"><div><b>${esc(g.game.course.name)}</b><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
-    };
-    // historique : tuile compacte (date, lieu, score), touche pour déplier / replier
-    const histCard = g => {
-      const full = card(g);
-      const sc = (full.match(/<div class="gscore">([\s\S]*?)<small>/) || [])[1] || '—';
-      const hl = (full.match(/<div class="gscore">[\s\S]*?<small>([\s\S]*?)<\/small>/) || [])[1] || '';
-      const who = isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ');
-      const d = new Date(g.game.play_date + 'T12:00');
-      return `<div class="hcard" data-hx="${g.game.id}"><div class="hrow"><span class="hdate"><b>${d.getDate()}</b><small>${d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}</small></span><span class="hcourse">${esc(g.game.course.name)}</span><span class="hsc">${sc}</span><span class="hchev">›</span></div>
-        <div class="hmore"><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}${hl ? ' · ' + hl + ' joués' : ''}</small><small>${who}</small><a class="btn ghost sm" href="#/game/${g.game.id}">Voir la partie ›</a></div></div>`;
-    };
     const potesCard = g => {
       const sl = standingsLite(g);
       const lead = sl[0] && sl[0].played ? { name: sl[0].name, label: sl[0].label } : null;
@@ -810,14 +813,14 @@
       <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="join"><i>${FW_IC('join')}</i><b>Rejoindre</b></button><a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
-      <h2>Historique</h2>${done.length ? done.slice(0, 15).map(histCard).join('') : '<p class="muted">Aucune partie terminée.</p>'}
+      <h2>Historique</h2>${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
     refreshOnlineUI();
     loadWeather();
-    $app.querySelectorAll('[data-hx]').forEach(c => c.onclick = e => { if (e.target.closest('a')) return; c.classList.toggle('open'); });
+    bindHist($app);
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
 
@@ -1676,6 +1679,21 @@
   }
   const rougesIn = g => { const me = myPlayer(g); return me ? (g.events || []).filter(e => e.type === 'rouge' && e.player_id === me.id).length : 0; };
 
+  // historique complet : une tuile par mois, regroupées par année
+  function histByMonth() {
+    const all = histGames(); if (!all.length) return '';
+    const groups = {};
+    all.forEach(g => { const k = (g.game.play_date || '').slice(0, 7); (groups[k] = groups[k] || []).push(g); });
+    let html = '', year = null;
+    Object.keys(groups).sort().reverse().forEach(k => {
+      const [y, m] = k.split('-');
+      if (y !== year) { year = y; html += `<div class="hyear">${y}</div>`; }
+      const list = groups[k];
+      const label = new Date(+y, +m - 1, 1).toLocaleDateString('fr-FR', { month: 'long' });
+      html += `<div class="motile" data-mo="${k}"><div class="mohead"><b>${label.charAt(0).toUpperCase() + label.slice(1)}</b><span>${list.length} partie${list.length > 1 ? 's' : ''}</span><span class="hchev">›</span></div><div class="molist">${list.map(histCard).join('')}</div></div>`;
+    });
+    return `<div class="histall"><div class="hahead"><b>Historique des parties</b><span>${all.length} partie${all.length > 1 ? 's' : ''}</span><span class="hchev">›</span></div><div class="habody">${html}</div></div>`;
+  }
   function viewStats(mode) {
     mode = mode || S.statsMode || 'avg'; S.statsMode = mode;
     const rounds = myRoundStats().filter(r => r.s.played > 0);
@@ -1722,9 +1740,13 @@
       ${palmares}
       <div class="seg statseg">${[['last', 'Dernière partie'], ['avg', 'Moyenne'], ['best', 'Meilleure']].map(([k, l]) => `<button data-sm="${k}" class="${mode === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       ${body}
+      ${histByMonth()}
     </main>`;
     updateSyncBadge();
     $app.querySelectorAll('[data-sm]').forEach(b => b.onclick = () => viewStats(b.dataset.sm));
+    $app.querySelectorAll('[data-mo]').forEach(t => t.querySelector('.mohead').onclick = () => t.classList.toggle('open'));
+    const ha = $app.querySelector('.histall'); if (ha) ha.querySelector('.hahead').onclick = () => ha.classList.toggle('open');
+    bindHist($app);
   }
 
   /* --- Parcours --- */
