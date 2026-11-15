@@ -156,3 +156,26 @@ notify pgrst, 'reload schema';
 -- Signataire d'un événement (appareil), pour le fair-play du Fly Tour
 alter table public.events add column if not exists by_dev text;
 notify pgrst, 'reload schema';
+
+-- ===== Flights (groupes privés, accès sur invitation) =====
+create table if not exists public.flights (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  code text not null unique,
+  admin_device text,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.flight_members (
+  flight_id uuid not null references public.flights(id) on delete cascade,
+  device_id text not null,
+  name text,
+  joined_at timestamptz not null default now(),
+  primary key (flight_id, device_id)
+);
+alter table public.flights enable row level security;
+alter table public.flight_members enable row level security;
+drop policy if exists flights_rw on public.flights;
+create policy flights_rw on public.flights for all to anon using (true) with check (true);
+drop policy if exists flight_members_rw on public.flight_members;
+create policy flight_members_rw on public.flight_members for all to anon using (true) with check (true);
+notify pgrst, 'reload schema';
