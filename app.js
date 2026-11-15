@@ -1197,7 +1197,7 @@
     }
     el.innerHTML = html;
     el.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => setGreenPoint(g, h, b.dataset.gp, S.pos));
-    el.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { S.tab = 'carte'; S.mapEdit = 'center'; viewGame(curGid); });
+    el.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { S.tab = 'carte'; S.mapEditMode = true; S.mapEdit = 'center'; viewGame(curGid); });
     el.querySelectorAll('[data-ms]').forEach(b => b.onclick = () => { if (b.dataset.ms === 'start') { S.measure = { lat: S.pos.lat, lng: S.pos.lng }; } else { const d = C.distance(S.measure, S.pos); S.measure = null; if (d) alert('Distance du coup : ' + d + ' m'); } updateGPSView(); });
   }
 
@@ -1223,12 +1223,21 @@
   function destroyMap() { if (map) { map.remove(); map = null; layers = null; target = null; } }
   function renderMap(body, g) {
     const h = S.hole[g.game.id];
-    body.innerHTML = holeChips(g, h) + `<div class="maptools">${[['tee', 'Départ'], ['front', 'Avant green'], ['center', 'Centre green'], ['back', 'Arrière green']].map(([k, v]) => `<button data-me="${k}" class="${S.mapEdit === k ? 'on' : ''}">${v}</button>`).join('')}</div>
-      <button class="btn ghost sm full" id="m-auto">${FW_IC('signal')} Trouver les drapeaux automatiquement</button>${isAdmin() ? `<a class="btn ghost sm full admbtn" href="#/admin/${encodeURIComponent(g.game.course_id)}/${h}">${FW_IC('gear')} Ajuster précisément (admin)</a>` : ''}<p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Touche la carte pour mesurer une distance. Choisis un repère ci-dessus pour placer les points du trou.'}</p>
-      <div id="map"></div><div id="mapinfo" class="mapinfo"></div>`;
-    body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { S.hole[g.game.id] = +b.dataset.h; destroyMap(); renderGameBody(); });
-    body.querySelector('#m-auto').onclick = () => autoFlags(g.game.course_id).then(() => { destroyMap(); renderGameBody(); });
-    body.querySelectorAll('[data-me]').forEach(b => b.onclick = () => { S.mapEdit = S.mapEdit === b.dataset.me ? null : b.dataset.me; renderGameBody(); });
+    const edit = !!S.mapEditMode; if (!edit) S.mapEdit = null;
+    S.mapCentered = false;
+    body.innerHTML = holeChips(g, h) + `<div class="mapwrap${edit ? ' editing' : ''}"><div id="map"></div>
+      <div id="mapinfo" class="mapinfo"></div>
+      <div class="mapfabs"><button id="m-me" aria-label="Me centrer sur la carte">◎</button><button id="m-edit" class="${edit ? 'on' : ''}" aria-label="Modifier la carte">✏️</button></div>
+      ${edit ? `<div class="mapedit"><div class="maptools">${[['tee', 'Départ'], ['front', 'Avant'], ['center', 'Centre'], ['back', 'Arrière']].map(([k, v]) => `<button data-me="${k}" class="${S.mapEdit === k ? 'on' : ''}">${v}</button>`).join('')}</div>
+        <p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Choisis un repère puis touche la carte pour le placer.'}</p>
+        <div class="row2"><button class="btn ghost sm" id="m-auto">${FW_IC('signal')} Auto</button>${isAdmin() ? `<a class="btn ghost sm" href="#/admin/${encodeURIComponent(g.game.course_id)}/${h}">${FW_IC('gear')} Précis</a>` : ''}</div>
+        <button class="btn sm full" id="m-done">Terminé</button></div>` : ''}</div>`;
+    body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { S.hole[g.game.id] = +b.dataset.h; target = null; destroyMap(); renderGameBody(); });
+    body.querySelector('#m-edit').onclick = () => { S.mapEditMode = !S.mapEditMode; S.mapEdit = S.mapEditMode ? 'center' : null; destroyMap(); renderGameBody(); };
+    const done = body.querySelector('#m-done'); if (done) done.onclick = () => { S.mapEditMode = false; S.mapEdit = null; destroyMap(); renderGameBody(); };
+    const au = body.querySelector('#m-auto'); if (au) au.onclick = () => autoFlags(g.game.course_id).then(() => { destroyMap(); renderGameBody(); });
+    body.querySelectorAll('[data-me]').forEach(b => b.onclick = () => { S.mapEdit = S.mapEdit === b.dataset.me ? null : b.dataset.me; body.querySelectorAll('[data-me]').forEach(x => x.classList.toggle('on', x.dataset.me === S.mapEdit)); const hint = document.getElementById('maphint'); if (hint) hint.innerHTML = S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Choisis un repère puis touche la carte pour le placer.'; });
+    body.querySelector('#m-me').onclick = () => { if (!S.pos) return toast(S.gpsErr ? 'GPS indisponible' : 'Recherche de ta position…'); if (map) map.setView([S.pos.lat, S.pos.lng], 18); };
     loadLeaflet().then(() => {
       destroyMap();
       const course = gameCourse(g); const gps = course.holes[h - 1].gps || {};
@@ -1238,7 +1247,7 @@
       layers = L.layerGroup().addTo(map);
       map.on('click', e => {
         const pt = { lat: e.latlng.lat, lng: e.latlng.lng };
-        if (S.mapEdit) { setGreenPoint(g, h, S.mapEdit, pt); const order = ['tee', 'front', 'center', 'back']; const nx = order[order.indexOf(S.mapEdit) + 1]; S.mapEdit = nx || null; body.querySelectorAll('[data-me]').forEach(b => b.classList.toggle('on', b.dataset.me === S.mapEdit)); const hint = document.getElementById('maphint'); if (hint) hint.innerHTML = S.mapEdit ? 'Point suivant : <b>' + ({ front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Points placés ✔ — touche la carte pour mesurer.'; }
+        if (S.mapEditMode && S.mapEdit) { setGreenPoint(g, h, S.mapEdit, pt); const order = ['tee', 'front', 'center', 'back']; const nx = order[order.indexOf(S.mapEdit) + 1]; S.mapEdit = nx || null; body.querySelectorAll('[data-me]').forEach(b => b.classList.toggle('on', b.dataset.me === S.mapEdit)); const hint = document.getElementById('maphint'); if (hint) hint.innerHTML = S.mapEdit ? 'Point suivant : <b>' + ({ front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Points placés ✔ — touche « Terminé ».'; }
         else { target = pt; drawMapLayers(); }
       });
       drawMapLayers();
@@ -1256,7 +1265,12 @@
     if (gps.center) { dot(gps.center, '#e8272b', 'Centre green', 8); }
     if (gps.back) dot(gps.back, '#1b7a2b', 'Arrière', 5);
     const from = S.pos && gps.center && C.distance(S.pos, gps.center) < 1500 ? S.pos : gps.tee;
-    if (S.pos) L.circleMarker([S.pos.lat, S.pos.lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).bindTooltip('Moi').addTo(layers);
+    if (S.pos) {
+      if (S.pos.acc && S.pos.acc < 200) L.circle([S.pos.lat, S.pos.lng], { radius: S.pos.acc, color: '#1a73e8', weight: 1, fillColor: '#1a73e8', fillOpacity: .12 }).addTo(layers);
+      L.circleMarker([S.pos.lat, S.pos.lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).bindTooltip('Moi').addTo(layers);
+      // première position : cadrer moi + green si je suis sur le trou
+      if (!S.mapCentered && gps.center && C.distance(S.pos, gps.center) < 1500) { S.mapCentered = true; map.fitBounds([[S.pos.lat, S.pos.lng], [gps.center.lat, gps.center.lng]], { padding: [60, 60], maxZoom: 18 }); }
+    }
     let info = '';
     if (target) {
       dot(target, '#ffd400', 'Cible', 7);
@@ -1264,10 +1278,11 @@
       L.polyline(pts, { color: '#ffd400', weight: 3, dashArray: '6 6' }).addTo(layers);
       const d1 = from ? C.distance(from, target) : null, d2 = gps.center ? C.distance(target, gps.center) : null;
       const club = C.suggestClub(d1, S.me.bag);
-      info = `${d1 != null ? `<span>${from === S.pos ? 'Moi' : 'Départ'} → cible <b>${d1} m</b>${club ? ' (' + esc(club.club) + ')' : ''}</span>` : ''}${d2 != null ? `<span>Cible → green <b>${d2} m</b></span>` : ''}`;
-    } else if (from && gps.center) info = `<span>${from === S.pos ? 'Moi' : 'Départ'} → centre green <b>${C.distance(from, gps.center)} m</b></span>`;
-    else if (!gps.center) info = '<span>Place le green avec les boutons ci-dessus.</span>';
-    const el = document.getElementById('mapinfo'); if (el) el.innerHTML = info;
+      info = `<div class="mi-row">${d1 != null ? `<div class="mi"><small>${from === S.pos ? 'Moi' : 'Départ'} → cible</small><b>${d1} m</b>${club ? `<small>${esc(club.club)}</small>` : ''}</div>` : ''}${d2 != null ? `<div class="mi"><small>Cible → green</small><b>${d2} m</b></div>` : ''}<button class="mi-x" id="mi-x" aria-label="Effacer la cible">✕</button></div>`;
+    } else if (from && gps.center) info = `<div class="mi-row"><div class="mi"><small>${from === S.pos ? 'Moi' : 'Départ'} → green</small><b>${C.distance(from, gps.center)} m</b></div><div class="mi tip"><small>Touche la carte<br>pour viser un point</small></div></div>`;
+    else if (!gps.center) info = '<div class="mi-row"><div class="mi tip"><small>Green pas encore placé : touche ✏️ pour le placer</small></div></div>';
+    else info = '<div class="mi-row"><div class="mi tip"><small>Touche la carte pour mesurer une distance</small></div></div>';
+    const el = document.getElementById('mapinfo'); if (el) { el.innerHTML = info; const x = el.querySelector('#mi-x'); if (x) x.onclick = e => { e.stopPropagation(); target = null; drawMapLayers(); }; }
   }
 
   /* --- Classement --- */
