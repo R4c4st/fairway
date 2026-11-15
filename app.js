@@ -305,7 +305,7 @@
       const others = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId && isKnown(m.device_id)).sort((a, b) => (b.course ? 1 : 0) - (a.course ? 1 : 0) || (a.name || '').localeCompare(b.name || ''));
       box.innerHTML = others.length ? `<h2>En ligne <span class="cnt">${others.length}</span></h2><div class="onl">${others.map(m => `<span class="onchip"><i class="led"></i>${esc(m.name || '?')}${m.course ? `<small>⛳ ${esc(m.course)}</small>` : m.watching ? `<small>👀 ${esc(m.watching)}</small>` : ''}</span>`).join('')}</div>` : '';
     }
-    document.querySelectorAll('[data-dev]').forEach(el => { const on = !!(S.onlineMap[el.dataset.dev] && el.dataset.dev !== S.me.deviceId); el.classList.toggle('isonline', on); });
+    document.querySelectorAll('[data-dev]').forEach(el => { const on = !!(S.onlineMap[el.dataset.dev] && el.dataset.dev !== S.me.deviceId && isKnown(el.dataset.dev)); el.classList.toggle('isonline', on); });
   }
 
 
@@ -430,7 +430,7 @@
   // partenaires (joués ensemble) d'abord, puis tous les inscrits ; dédoublonné par téléphone
   function copainList() {
     const out = [], seen = new Set();
-    S.me.partners.slice().sort((a, b) => (b.games || []).length - (a.games || []).length).forEach(m => { const k = m.device_id || m.key; if (seen.has(k) || (m.device_id && !isKnown(m.device_id))) return; seen.add(k); out.push({ key: m.key, device_id: m.device_id || null, name: m.name, idx: m.idx, partner: true }); });
+    S.me.partners.slice().sort((a, b) => (b.games || []).length - (a.games || []).length).forEach(m => { const k = m.device_id || m.key; if (seen.has(k)) return; seen.add(k); out.push({ key: m.key, device_id: m.device_id || null, name: m.name, idx: m.idx, partner: true }); });
     S.copains.forEach(c => { if (seen.has(c.device_id)) return; seen.add(c.device_id); out.push({ key: 'd:' + c.device_id, device_id: c.device_id, name: c.name, idx: c.idx, partner: false }); });
     return out;
   }
@@ -441,7 +441,7 @@
     const rest = list.filter(m => !used.has(m.key)); if (rest.length) out.push([out.length ? 'Déjà joué avec' : 'Les copains', rest]);
     return out;
   }
-  const chipHtml = (m, on, attr) => `<button ${attr}="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${on ? 'on' : ''} ${S.onlineMap[m.device_id] ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`;
+  const chipHtml = (m, on, attr) => `<button ${attr}="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${on ? 'on' : ''} ${S.onlineMap[m.device_id] && isKnown(m.device_id) ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`;
 
   /* ---------- Météo (Open-Meteo, sans clé) ---------- */
   const WX_ICONS = {
