@@ -742,7 +742,7 @@
       const g0 = S.games[gid]; if (!g0) return;
       const mine = gameBlocks(g0)[S.me.deviceId]; if (!mine) return;
       const pts = mine.blocks.reduce((a, b) => a + b.pts, 0);
-      refreshSeason().then(d => { const i = d.cur.findIndex(r => r.dev === S.me.deviceId); toast(`🏆 ${pts >= 0 ? '+' : ''}${pts} pts sur cette partie${i >= 0 ? ' · tu es ' + (i + 1) + (i ? 'e' : 'er') + ' de ' + MOIS[+d.month.slice(5) - 1] : ''}`); }).catch(() => { });
+      refreshSeason().then(d => { const i = d.cur.findIndex(r => r.dev === S.me.deviceId); toast(`🏆 ${pts >= 0 ? '+' : ''}${pts} pts sur cette partie${i >= 0 ? ' · tu es ' + (i + 1) + (i ? 'e' : 'er') + ' de l\'étape de ' + MOIS[+d.month.slice(5) - 1] : ''}`); }).catch(() => { });
     }, 5200);
     const g = S.games[gid]; if (!g) return;
     const course = gameCourse(g);
@@ -961,11 +961,11 @@
       <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
       ${installBar()}
-      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Classement</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
+      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
-      ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le classement de la saison</b><small>Des points à chaque partie, un podium chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
+      ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
       ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>QR code pour installer Fly18 ou rejoindre ta partie</small></div><span>›</span></button>` : ''}
     </main>`;
@@ -974,7 +974,7 @@
     refreshOnlineUI();
     loadWeather();
     if (S.me.season) refreshSeason().then(d => { const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); }).catch(() => { });
-    const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Classement activé 🏆'); viewHome(); };
+    const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Bienvenue sur le Fly Tour 🏆'); viewHome(); };
     const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
     bindHist($app);
     $app.querySelectorAll('[data-act=invite]').forEach(b => b.onclick = inviteSheet);
@@ -2100,7 +2100,9 @@
     if (!pm.startsWith(y)) prevGames = await fetchSeasonGames(pm.slice(0, 4));
     let allowed = new Set(S.me.season ? [S.me.deviceId] : []);
     if (remoteOn() && navigator.onLine) { try { const { data: pr } = await sb.from('profiles').select('device_id').eq('season', true); if (pr) allowed = new Set(pr.map(r => r.device_id).concat(S.me.season ? [S.me.deviceId] : [])); } catch (e) { } }
-    const data = { at: Date.now(), month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
+    const cups = {};
+    for (let m = 1; m < +now.slice(5, 7); m++) { const st = standingsMonth(games, y + '-' + String(m).padStart(2, '0'), allowed); if (st.length && st[0].pts > 0) st.filter(r => r.pts === st[0].pts).forEach(r => (cups[r.dev] = (cups[r.dev] || 0) + 1)); }
+    const data = { at: Date.now(), cups, month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
     LS.set('fw_season', data); return data;
   }
   function prevMonthKey(k) { let [y, m] = k.split('-').map(Number); m--; if (!m) { m = 12; y--; } return y + '-' + String(m).padStart(2, '0'); }
@@ -2108,8 +2110,8 @@
     if (!data || data.month !== monthKey(today())) return '';
     const rows = data.cur; const i = rows.findIndex(r => r.dev === S.me.deviceId);
     const [y, m] = data.month.split('-').map(Number); const left = new Date(y, m, 0).getDate() - new Date().getDate();
-    const lbl = 'Saison de ' + MOIS[m - 1];
-    if (i < 0) return `<a class="sstrip" href="#/classement"><span class="rk">–</span><div><b>${lbl}</b><small>${rows.length ? 'Joue une partie pour entrer au classement' : 'Pas encore de points ce mois-ci'}</small></div><div class="pts"><b>0</b><small>pt</small></div></a>`;
+    const lbl = 'Fly Tour · étape de ' + MOIS[m - 1];
+    if (i < 0) return `<a class="sstrip" href="#/classement"><span class="rk">–</span><div><b>${lbl}</b><small>${rows.length ? 'Joue une partie pour entrer dans l\'étape' : 'Pas encore de points ce mois-ci'}</small></div><div class="pts"><b>0</b><small>pt</small></div></a>`;
     const me = rows[i]; const ahead = i > 0 ? rows[i - 1] : null;
     const sub = ahead ? `à ${ahead.pts - me.pts} pt${ahead.pts - me.pts > 1 ? 's' : ''} de ${esc(ahead.name)}` : (rows.length > 1 ? `${me.pts - rows[1].pts} pt${me.pts - rows[1].pts > 1 ? 's' : ''} d'avance 👑` : 'en tête 👑');
     return `<a class="sstrip" href="#/classement"><span class="rk">${i + 1}<sup>${i ? 'e' : 'er'}</sup></span><div><b>${lbl}</b><small>${sub} · ${left > 0 ? left + ' jour' + (left > 1 ? 's' : '') + ' restant' + (left > 1 ? 's' : '') : 'dernier jour !'}</small></div><div class="pts"><b>${me.pts}</b><small>pts</small></div></a>`;
@@ -2120,16 +2122,16 @@
     const draw = d => {
       const rows = !d ? [] : tab === 'cur' ? d.cur : tab === 'prev' ? d.prev : d.yearRows;
       const curM = monthKey(today());
-      const tabs = [['cur', MOIS[+curM.slice(5) - 1]], ['prev', MOIS[+prevMonthKey(curM).slice(5) - 1]], ['year', 'Année ' + curM.slice(0, 4)]];
+      const tabs = [['cur', MOIS[+curM.slice(5) - 1]], ['prev', MOIS[+prevMonthKey(curM).slice(5) - 1]], ['year', 'Saison ' + curM.slice(0, 4)]];
       const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '👑 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
-      const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}<small>${r.kept}/${BEST_BLOCKS} × 9 trous</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
+      const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}${tab === 'year' && d.cups && d.cups[r.dev] ? ` <span class="cup">🏆×${d.cups[r.dev]}</span>` : ''}<small>${tab === 'year' ? r.games + ' partie' + (r.games > 1 ? 's' : '') : r.kept + '/' + BEST_BLOCKS + ' × 9 trous'}</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
       const mine = rows.find(r => r.dev === S.me.deviceId);
       const det = mine ? `<h2>Mes points</h2><div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
-      const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné, sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Seules les parties terminées comptent. Remise à zéro le 1er de chaque mois.</p></details>`;
+      const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné, sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Seules les parties terminées comptent. Chaque mois est une étape : remise à zéro le 1er, et le premier remporte la <b>Fly Cup</b>. La saison cumule toutes les étapes de l'année.</p></details>`;
       $app.querySelector('main').innerHTML = `<div class="seg statseg">${tabs.map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`).join('')}</div>${podium}${list}${det}${rules}`;
       $app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => viewSeason(b.dataset.st));
     };
-    $app.innerHTML = topbar('Classement', '#/') + '<main><p class="muted">Calcul du classement…</p></main>';
+    $app.innerHTML = topbar('Fly Tour', '#/') + '<main><p class="muted">Calcul du classement…</p></main>';
     updateSyncBadge();
     if (data) draw(data);
     refreshSeason().then(d => { if (location.hash === '#/classement') draw(d); });
@@ -2141,7 +2143,7 @@
     LS.set('fw_crown', d.prevKey);
     const r = d.prev; const el = document.createElement('div'); el.className = 'pop';
     const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#ffd400', '#f7c531', '#fff', '#22a052'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
-    el.innerHTML = `<div class="conf">${conf}</div><div class="popcard"><div class="popemoji">👑</div><div class="popsub">Saison de ${MOIS[+d.prevKey.slice(5) - 1]}</div><div class="poptitle">${esc(r[0].name)} est sacré !</div><div class="popsub">${r[0].pts} pts${r[1] ? ' · 2e ' + esc(r[1].name) + ' (' + r[1].pts + ')' : ''}${r[2] ? ' · 3e ' + esc(r[2].name) + ' (' + r[2].pts + ')' : ''}</div></div>`;
+    el.innerHTML = `<div class="conf">${conf}</div><div class="popcard"><div class="popemoji">👑</div><div class="popsub">Fly Tour · étape de ${MOIS[+d.prevKey.slice(5) - 1]}</div><div class="poptitle">${esc(r[0].name)} remporte la Fly Cup !</div><div class="popsub">${r[0].pts} pts${r[1] ? ' · 2e ' + esc(r[1].name) + ' (' + r[1].pts + ')' : ''}${r[2] ? ' · 3e ' + esc(r[2].name) + ' (' + r[2].pts + ')' : ''}</div></div>`;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 300); };
     el.onclick = close; setTimeout(close, 6000);
@@ -2239,7 +2241,7 @@
       <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via Aa en haut d'une partie)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>🏆 Classement de la saison<small>Points à chaque partie, classement du mois entre potes (tes 4 meilleurs 9 trous)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>🏆 Fly Tour<small>Le classement entre potes : une étape par mois, une Fly Cup au vainqueur (tes 4 meilleurs 9 trous)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Couleur</label>
       <div class="colors">${Object.entries(window.FW_PALETTES || {}).map(([k, p]) => `<button data-col="${k}" class="${S.me.color === k ? 'on' : ''}" title="${esc(p.name)}"><i style="background:linear-gradient(135deg,${p.g},${p.gd})"></i><small>${esc(p.name)}</small></button>`).join('')}</div>
@@ -2279,7 +2281,7 @@
     $app.querySelector('#p-big').onchange = e => { S.me.big = e.target.checked; saveMe(); applyBig(); };
     $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
-    $app.querySelector('#p-season').onchange = e => { S.me.season = e.target.checked; S.me.seasonAsked = 1; syncProfile(); LS.set('fw_season', null); toast(S.me.season ? 'Classement activé 🏆' : 'Classement désactivé'); };
+    $app.querySelector('#p-season').onchange = e => { S.me.season = e.target.checked; S.me.seasonAsked = 1; syncProfile(); LS.set('fw_season', null); toast(S.me.season ? 'Bienvenue sur le Fly Tour 🏆' : 'Fly Tour désactivé'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
     $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return fwAlert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
