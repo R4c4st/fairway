@@ -49,7 +49,8 @@
   applyBig();
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   if (!S.me.color) S.me.color = 'vert';
-  if (!S.me.logo) S.me.logo = 'fairway';
+  if (!S.me.logo || !S.me.logoV2) { S.me.logo = 'pro_f'; S.me.logoV2 = 1; }
+  if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'pro_f';
   if (window.FW_PALETTES && !window.FW_PALETTES[S.me.color]) S.me.color = 'vert';
   const logoURL = () => window.fwLogoURL ? window.fwLogoURL(S.me.logo, S.me.color) : 'icon.svg';
   function applyTheme() {
@@ -418,7 +419,7 @@
     el.onclick = e => { if (e.target === el) close(); };
     const live = (await fetchLive()).filter(g => g.game.course_id === course.id && g.game.status !== 'done');
     const box = el.querySelector('#wg-live');
-    if (box && live.length) box.innerHTML = `<a class="btn ghost full" href="#/live" id="wg-lv">📺 ${live.length} partie${live.length > 1 ? 's' : ''} en cours ici : rejoindre ou suivre</a>`, box.querySelector('#wg-lv').onclick = close;
+    if (box && live.length) box.innerHTML = `<a class="btn ghost full" href="#/live" id="wg-lv">${FW_IC('live')} ${live.length} partie${live.length > 1 ? 's' : ''} en cours ici : rejoindre ou suivre</a>`, box.querySelector('#wg-lv').onclick = close;
   }
 
   /* ---------- Suivre mes potes ---------- */
@@ -553,7 +554,7 @@
     const st = { pid: (myPlayer(g) || g.players[0] || {}).id, type: null };
     const el = document.createElement('div'); el.className = 'modal';
     const draw = () => {
-      el.innerHTML = `<div class="sheet"><h2>👏 Signaler un beau coup</h2>
+      el.innerHTML = `<div class="sheet"><h2>${FW_IC('shot')} Signaler un beau coup</h2>
         <div class="pick">${indivPlayers(g).map(p => `<button data-p="${p.id}" class="${p.id === st.pid ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
         <div class="pick shots">${SHOTS.map(s => `<button data-t="${s[0]}" class="${s[0] === st.type ? 'on' : ''}"><span>${s[1]}</span>${s[2]}</button>`).join('')}</div>
         <button class="btn big full" id="sh-go" ${st.pid && st.type ? '' : 'disabled'}>Envoyer à tout le monde</button>
@@ -579,7 +580,7 @@
     const names = pay.last.map(x => x.name);
     const title = names.length ? 'Merci ' + names.join(' et ') + ' !' : 'Égalité parfaite !';
     const sub = names.length ? (pay.teamName ? (g.game.format === 'combo' ? pay.teamName + ' a perdu le duel : tournée d\'équipe 🍻' : pay.teamName + ', équipe dernière : tournée d\'équipe 🍻') : (names.length > 1 ? 'Derniers ex aequo : tournée partagée 🍻' : 'Dernier de la partie : c\'est ta tournée 🍻')) : 'Personne ne paie… cette fois.';
-    const extra = pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges au ${r.holes.join(', ')} → ${r.holes.length} tournée${r.holes.length > 1 ? 's' : ''}</li>`).join('');
+    const extra = pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — pas passé les rouges au ${r.holes.join(', ')} → ${r.holes.length} tournée${r.holes.length > 1 ? 's' : ''}</li>`).join('');
     const bubbles = Array.from({ length: 14 }, () => `<circle cx="${45 + Math.random() * 70}" cy="200" r="${2 + Math.random() * 3}" style="animation-delay:${1 + Math.random() * 2.5}s;animation-duration:${1.6 + Math.random() * 1.6}s"/>`).join('');
     const el = document.createElement('div'); el.className = 'beer';
     el.innerHTML = `<div class="beerin">
@@ -773,11 +774,11 @@
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
       <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
-      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="join"><i>🔗</i><b>Rejoindre</b></button><a class="tile live" href="#/live"><i>📺</i><b>Live</b><span id="livecount"></span></a></div>
+      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="join"><i>${FW_IC('join')}</i><b>Rejoindre</b></button><a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 15).map(card).join('') : '<p class="muted">Aucune partie terminée.</p>'}
-      <div class="row3"><a class="btn ghost" href="#/stats"><i>📊</i>Stats</a><a class="btn ghost" href="#/courses"><i>🗺️</i>Parcours</a><a class="btn ghost" href="#/profile"><i>⚙️</i>Réglages</a></div>
+      <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
@@ -919,7 +920,7 @@
     }
     const spect = !!g.follow;
     if (spect && (S.tab === 'trou' || S.tab === 'carte')) S.tab = 'classement';
-    const tabs = spect ? [['classement', '📺 Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
+    const tabs = spect ? [['classement', 'Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
     $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="icon bigtg ${S.me.big ? 'on' : ''}" id="g-big" aria-label="Mode parcours">👓</button><button class="icon" id="g-invite" aria-label="Inviter">📨</button>`) +
       `<nav class="tabs">${tabs.map(([k, v]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('')}</nav><main id="gbody"></main>`;
     updateSyncBadge();
@@ -986,16 +987,16 @@
         <div class="stepper"><button data-s="-1">−</button><span class="val ${cls}">${shown}</span><button data-s="1">＋</button></div>
         <div class="sub"><span>Putts</span><button data-pt="-1">−</button><span class="pv">${cur.putts != null ? cur.putts : '–'}</span><button data-pt="1">＋</button>
           <button class="pickbtn ${cur.pickup ? 'on' : ''}" data-pick="1" title="Balle ramassée">X</button>
-          ${p.members ? '' : ((p.tee || g.game.tee) !== 'rouge' ? `<button class="pickbtn rougebtn ${rougeEv(g, p.id, h) ? 'on' : ''}" data-rouge="1" title="Pas passé les rouges">🍺 Rouges</button>` : '')}
+          ${p.members ? '' : ((p.tee || g.game.tee) !== 'rouge' ? `<button class="pickbtn rougebtn ${rougeEv(g, p.id, h) ? 'on' : ''}" data-rouge="1" title="Pas passé les rouges">${FW_IC('tournee')} Rouges</button>` : '')}
           <span class="res">${ph && ph.gross != null ? C.scoreName(cur.strokes, ch.par, cur.pickup) + (g.game.format === 'stableford' ? ' · ' + ph.points + ' pt' + (ph.points > 1 ? 's' : '') : '') : ''}</span></div>
-        ${p.members && g.game.tee !== 'rouge' ? `<div class="sub rmem"><span>🍺 Rouges :</span>${p.members.map(m => `<button class="pickbtn rougebtn ${rougeEv(g, m.id, h) ? 'on' : ''}" data-rpid="${m.id}">${esc(m.name.split(' ')[0])}</button>`).join('')}</div>` : ''}
+        ${p.members && g.game.tee !== 'rouge' ? `<div class="sub rmem"><span>${FW_IC('tournee')} Rouges :</span>${p.members.map(m => `<button class="pickbtn rougebtn ${rougeEv(g, m.id, h) ? 'on' : ''}" data-rpid="${m.id}">${esc(m.name.split(' ')[0])}</button>`).join('')}</div>` : ''}
       </div>`;
     }).join('');
     const idx = holes.indexOf(h);
     body.innerHTML = holeChips(g, h) + `
       <section class="holehead"><div class="hn">${h}</div><div><b>Par ${ch.par}</b> · HCP ${ch.si}${dist ? ' · ' + dist + ' m' : ''}<small>${stars ? `<span class="stars">${stars}</span> ` : ''}${ch.note ? esc(ch.note) : '<i class="muted">Pas de note sur ce trou</i>'}</small></div><button class="icon" id="h-note" aria-label="Modifier la note">✏️</button></section>
       <section class="gps" id="gps"></section>
-      <button class="btn shotbtn full" id="h-shot">👏 Signaler un beau coup</button>
+      <button class="btn shotbtn full" id="h-shot">${FW_IC('shot')} Signaler un beau coup</button>
       ${phaseInfo}
       <section class="players">${sumRows}</section>
       ${!isTeamGame(g) && g.players.length < 8 ? '<button class="btn ghost full" id="h-addp">＋ Ajouter un joueur</button>' : ''}
@@ -1167,7 +1168,7 @@
   function renderMap(body, g) {
     const h = S.hole[g.game.id];
     body.innerHTML = holeChips(g, h) + `<div class="maptools">${[['tee', 'Départ'], ['front', 'Avant green'], ['center', 'Centre green'], ['back', 'Arrière green']].map(([k, v]) => `<button data-me="${k}" class="${S.mapEdit === k ? 'on' : ''}">${v}</button>`).join('')}</div>
-      <button class="btn ghost sm full" id="m-auto">🛰️ Trouver les drapeaux automatiquement</button>${isAdmin() ? `<a class="btn ghost sm full admbtn" href="#/admin/${encodeURIComponent(g.game.course_id)}/${h}">🛠️ Ajuster précisément (admin)</a>` : ''}<p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Touche la carte pour mesurer une distance. Choisis un repère ci-dessus pour placer les points du trou.'}</p>
+      <button class="btn ghost sm full" id="m-auto">${FW_IC('signal')} Trouver les drapeaux automatiquement</button>${isAdmin() ? `<a class="btn ghost sm full admbtn" href="#/admin/${encodeURIComponent(g.game.course_id)}/${h}">${FW_IC('gear')} Ajuster précisément (admin)</a>` : ''}<p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Touche la carte pour mesurer une distance. Choisis un repère ci-dessus pour placer les points du trou.'}</p>
       <div id="map"></div><div id="mapinfo" class="mapinfo"></div>`;
     body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { S.hole[g.game.id] = +b.dataset.h; destroyMap(); renderGameBody(); });
     body.querySelector('#m-auto').onclick = () => autoFlags(g.game.course_id).then(() => { destroyMap(); renderGameBody(); });
@@ -1241,8 +1242,8 @@
     html += `${g.game.format === 'combo' ? '<!--' : ''}<table class="board ${C.noHcp(g.game) ? 'nohcp' : ''}"><thead><tr><th>#</th><th>${isTeamGame(g) ? 'Équipe' : 'Joueur'}</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${isTeamGame(g) ? teamDot((teamPlayers(g).find(t => t.id === r.playerId) || {}).color) : led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>${isTeamGame(g) ? esc((teamPlayers(g).find(t => t.id === r.playerId) || { members: [] }).members.map(m => m.name).join(' · ')) + ' · ' : ''}${C.noHcp(g.game) ? '' : 'HCP ' + r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>${g.game.format === 'combo' ? '-->' : ''}
       ${(() => {
         const pay = gamePayers(g);
-        const lines = pay.last.map(x => `<li>🍻 <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
-        return `<h2>Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}<button class="btn ghost full" id="b-beer">🍺 Qui paie sa tournée ?</button>`;
+        const lines = pay.last.map(x => `<li>${FW_IC('tournee')} <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
+        return `<h2>${FW_IC('tournee')} Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}<button class="btn ghost full" id="b-beer">🍺 Qui paie sa tournée ?</button>`;
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
       <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée par + ${C.xcapOf(g.game)}${C.noHcp(g.game) ? '' : ' (+ coups reçus)'} en stroke play.</p>
@@ -1320,7 +1321,7 @@
   }
   let liveChannel = null, liveTimer2 = null;
   async function viewLive() {
-    $app.innerHTML = topbar('📺 Live', '#/') + '<main id="livebody"><p class="muted">Recherche des parties en cours…</p></main>';
+    $app.innerHTML = topbar('Live', '#/') + '<main id="livebody"><p class="muted">Recherche des parties en cours…</p></main>';
     updateSyncBadge();
     if (!remoteOn()) { document.getElementById('livebody').innerHTML = '<p class="err">Serveur non configuré.</p>'; return; }
     const draw = async () => {
@@ -1332,7 +1333,7 @@
         const rows = standingsLite(g);
         const done = Math.max(0, ...g.players.map(p => holesAll.filter(h => (g.scores[p.id] || {})[h]).length));
         const lastEv = g.events.filter(e => e.type !== 'tournee').slice(-1)[0];
-        const evTxt = lastEv ? (lastEv.type === 'rouge' ? '🍺 ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
+        const evTxt = lastEv ? (lastEv.type === 'rouge' ? FW_IC('tournee') + ' ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
         const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
         const fin = g.game.status === 'done';
         const pay = fin ? gamePayers(g) : null;
@@ -1711,7 +1712,7 @@
         ${c.tees.some(t => t.sss == null) ? '<p class="hint">SSS manquant : le handicap de jeu prend le par à la place. Le SSS est sur la carte de score du club.</p>' : ''}
         <h2>Trous</h2>
         <div class="tablewrap"><table class="edit"><thead><tr><th>#</th><th>Par</th><th>HCP</th>${c.tees.map(t => `<th>${esc(t.name)} m</th>`).join('')}<th>Diff.</th></tr></thead><tbody>${c.holes.map((h, i) => `<tr><td>${h.n}</td><td><input data-h="${i}" data-f="par" inputmode="numeric" value="${h.par}"></td><td><input data-h="${i}" data-f="si" inputmode="numeric" value="${h.si}"></td>${c.tees.map(t => `<td><input data-h="${i}" data-d="${esc(t.id)}" inputmode="numeric" value="${(h.dist || {})[t.id] || ''}"></td>`).join('')}<td><input data-h="${i}" data-f="difficulty" inputmode="numeric" value="${h.difficulty || ''}" placeholder="1-5"></td></tr><tr class="noterow"><td></td><td colspan="${3 + c.tees.length}"><input data-h="${i}" data-f="note" placeholder="Note / pièges du trou ${h.n}${h.gps && h.gps.center ? ' · 📍 green placé' : ''}" value="${esc(h.note || '')}"></td></tr>`).join('')}</tbody></table></div>
-        <button class="btn ghost full" id="ce-auto">🛰️ Trouver les drapeaux automatiquement (OpenStreetMap)</button>
+        <button class="btn ghost full" id="ce-auto">${FW_IC('signal')} Trouver les drapeaux automatiquement (OpenStreetMap)</button>
         <button class="btn big full" id="ce-save">Enregistrer</button>
         <button class="btn ghost full" id="ce-dup">Dupliquer ce parcours</button>
       </main>`;

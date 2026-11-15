@@ -370,6 +370,18 @@ html[data-big] .tile b{font-size:18px}
 .sync.dot{width:10px;height:10px;min-width:10px;padding:0;border-radius:50%;display:block;background:#9aa3a0;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
 .sync.dot.ok{background:#3ddc6f;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 8px #3ddc6f}
 .sync.dot.warn{background:#ffb02e}
+.ic{width:1.35em;height:1.35em;vertical-align:-.32em;display:inline-block;flex:none}
+.tile i .ic{width:44px;height:44px;vertical-align:0}
+.row3 .btn i .ic{width:32px;height:32px;vertical-align:0}
+.tile.live{background:var(--card);border:1px solid var(--bd);color:#e0262b}
+html[data-theme=dark] .tile.live{color:#ff6b6b}
+#livecount{background:#e0262b;color:#fff}
+.ic-live .p1,.ic-live .p2{transform-origin:24px 24px;animation:icpulse 1.8s ease-out infinite}
+.ic-live .p2{animation-delay:.35s}
+@keyframes icpulse{0%{transform:scale(.7);opacity:.7}100%{transform:scale(1.05);opacity:0}}
+.shotbtn{background:var(--card)!important;color:#d32f2f!important;border:1px solid var(--bd)!important;display:flex;align-items:center;justify-content:center;gap:8px}
+.shotbtn .ic{width:30px;height:30px;vertical-align:0}
+.paylist .ic{width:1.5em;height:1.5em}
 </style>
 </head>
 <body>
@@ -378,6 +390,7 @@ html[data-big] .tile b{font-size:18px}
 <script src="core.js"></script>
 <script src="courses.js"></script>
 <script src="logos.js"></script>
+<script src="icons.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="app.js"></script>

@@ -1,6 +1,6 @@
 /* Fairway — service worker : appli dispo hors ligne sur le parcours */
-const VERSION = 'fairway-v42';
-const SHELL = ['./', 'index.html', 'app.js', 'core.js', 'courses.js', 'logos.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const VERSION = 'fairway-v43';
+const SHELL = ['./', 'index.html', 'app.js', 'core.js', 'courses.js', 'logos.js', 'icons.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 const LIBS = /cdn\.jsdelivr\.net|unpkg\.com/;
 const TILES = /arcgisonline\.com/;
 

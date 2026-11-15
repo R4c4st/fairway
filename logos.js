@@ -6,6 +6,10 @@ window.FW_PALETTES = {
 };
 
 window.FW_LOGOS = {
+  // Pro A : drapeau épuré
+  pro_f: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${c}"/><circle cx="256" cy="256" r="178" fill="${d}"/><rect x="198" y="118" width="34" height="270" rx="17" fill="#fff"/><path d="M232 122 H350 L326 160 L350 198 H232 Z" fill="#fff"/><ellipse cx="256" cy="398" rx="84" ry="14" fill="#fff" opacity=".9"/><circle cx="318" cy="370" r="16" fill="#fff"/></svg>`,
+  // Pro C : balle sur tee, sobre
+  pro_balle: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${c}"/><circle cx="256" cy="220" r="118" fill="#fff"/><g fill="${c}" opacity=".35">${[[220,170],[262,160],[302,184],[206,214],[248,206],[290,226],[228,256],[272,262],[314,266],[196,256]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="11"/>`).join('')}</g><path d="M206 340 H306 L282 366 V428 Q256 446 230 428 V366 Z" fill="#fff"/></svg>`,
   // 0. Fairway + drapeau rouge (logo d'origine)
   fairway: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="${d}"/><ellipse cx="256" cy="392" rx="170" ry="52" fill="${c}"/><ellipse cx="256" cy="392" rx="170" ry="52" fill="#fff" opacity=".12"/><ellipse cx="292" cy="392" rx="22" ry="8" fill="#000" opacity=".5"/><rect x="284" y="110" width="14" height="284" rx="7" fill="#f4f4f4"/><path d="M298 112 L420 160 L298 208 Z" fill="#e8272b"/><circle cx="190" cy="356" r="30" fill="#fff"/><circle cx="182" cy="348" r="4" fill="#d4d4d4"/><circle cx="198" cy="350" r="4" fill="#d4d4d4"/><circle cx="190" cy="364" r="4" fill="#d4d4d4"/></svg>`,
   // 1. Chope + drapeau (actuel)
@@ -17,9 +21,9 @@ window.FW_LOGOS = {
   // 4. Monogramme F + balle
   monogramme: (c, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="${d}"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#bg)"/><path d="M168 400 V120 H340 M168 250 H300" fill="none" stroke="#fff" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/><circle cx="362" cy="372" r="46" fill="#fff"/><g fill="#c4c9cd"><circle cx="348" cy="358" r="5"/><circle cx="368" cy="352" r="5"/><circle cx="380" cy="372" r="5"/><circle cx="356" cy="380" r="5"/><circle cx="372" cy="392" r="5"/></g><path d="M330 300 q16 -26 40 -8" fill="none" stroke="#ffc83d" stroke-width="10" stroke-linecap="round"/></svg>`
 };
-window.FW_LOGO_NAMES = { fairway: 'Fairway', chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
+window.FW_LOGO_NAMES = { pro_f: 'Drapeau pro', pro_balle: 'Balle & tee', fairway: 'Fairway', chope: 'Chope & drapeau', trinque: 'On trinque', drapeau: 'Drapeau', monogramme: 'Monogramme F' };
 window.fwLogoURL = (style, palette) => {
   const p = window.FW_PALETTES[palette] || window.FW_PALETTES.vert;
-  const f = window.FW_LOGOS[style] || window.FW_LOGOS.fairway;
+  const f = window.FW_LOGOS[style] || window.FW_LOGOS.pro_f;
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(f(p.g, p.gd));
 };
