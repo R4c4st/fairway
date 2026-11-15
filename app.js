@@ -311,6 +311,7 @@
 
   /* ---------- Flights : groupes privés, on n'y entre que sur invitation ---------- */
   S.flights = LS.get('fw_flights', []);
+  const flightLink = f => APP_URL + '#/f/' + f.code;
   const flightCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
   const flInit = n => { const w = n.trim().split(/\s+/).filter(x => x.length > 2 || /\d/.test(x)); return n.trim().length <= 4 ? n.trim() : (w.length > 1 ? w[0][0] + w[1][0] : n.trim().slice(0, 2)).toUpperCase(); };
   // téléphones de tous les membres de mes Flights (moi exclu)
@@ -1103,7 +1104,7 @@
       ${!S.flights.length && S.me.name ? `<a class="sinvite" href="#/flights"><span><i class="crest">${FW_IC('crest')}</i></span><div><b>Rejoins ou crée ton Flight</b><small>Ta bande de golf : vos parties, le Live et le Fly Tour entre vous.</small></div><span class="hchev">›</span></a>` : ''}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
-      ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>QR code pour installer Fly18</small></div><span>›</span></button>` : ''}
+      <div class="invrow">${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('crest')}</i><div><b>Inviter</b><small>dans mon Flight</small></div></button>` : ''}<button class="invbar" data-act="app"><i>${FW_IC('invite')}</i><div><b>Partager</b><small>l'appli Fly18</small></div></button></div>
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
     </main>`;
     updateSyncBadge();
@@ -1117,7 +1118,8 @@
     const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Bienvenue sur le Fly Tour 🏆'); viewHome(); };
     const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
     bindHist($app);
-    $app.querySelectorAll('[data-act=invite]').forEach(b => b.onclick = inviteSheet);
+    $app.querySelectorAll('[data-act=invite]').forEach(b => b.onclick = () => S.flights.length ? flightInviteSheet(S.flights[0]) : (location.hash = '#/flights'));
+    $app.querySelectorAll('[data-act=app]').forEach(b => b.onclick = inviteSheet);
     const ib = $app.querySelector('#installbar'); if (ib) ib.onclick = promptInstall;
   }
 
@@ -2348,7 +2350,7 @@
     try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(APP_URL); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
     const msg = 'Rejoins-nous sur Fly18 ⛳ — l\'appli golf des copains (scores en direct, GPS, et le dernier paie sa tournée 🍺).\nOuvre ce lien avec Chrome et installe-la : ' + APP_URL;
     const el = document.createElement('div'); el.className = 'modal';
-    el.innerHTML = `<div class="sheet invite"><h2 class="rgh">${FW_IC('invite')} Inviter un pote</h2>
+    el.innerHTML = `<div class="sheet invite"><h2 class="rgh">${FW_IC('invite')} Partager l'appli</h2>
       <p class="muted">Il scanne le code avec l'appareil photo de son téléphone : l'appli s'ouvre et lui propose de l'installer.</p>
       <div class="qrbox">${qr || '<p class="muted">QR code indisponible hors connexion</p>'}</div>
       <div class="qrurl">${APP_URL.replace('https://', '')}</div>
@@ -2363,6 +2365,24 @@
     };
   }
 
+  function flightInviteSheet(f) {
+    const el = document.createElement('div'); el.className = 'modal';
+    const draw = () => {
+      let qr = ''; try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(flightLink(f)); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
+      el.innerHTML = `<div class="sheet invite"><h2 class="rgh"><i class="crest">${FW_IC('crest')}</i>Inviter dans mon Flight</h2>
+      ${S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(x => `<button data-fs="${x.id}" class="${x.id === f.id ? 'on' : ''}">${esc(x.name)}</button>`).join('')}</div>` : ''}
+      <p class="muted">Il scanne le QR code : Fly18 s'installe et il rejoint le Flight <b>${esc(f.name)}</b>. S'il a déjà l'appli, envoie-lui simplement le code.</p>
+      <div class="qrbox">${qr || '<p class="muted">QR code indisponible hors connexion</p>'}</div>
+      <div class="flcode sm">${esc(f.code)}</div>
+      <button class="btn big full" id="iv-code">Envoyer le code du Flight</button>
+      <button class="btn ghost full" id="iv-x">Fermer</button></div>`;
+      el.querySelector('#iv-x').onclick = () => el.remove();
+      el.querySelector('#iv-code').onclick = () => shareFlight(f);
+      el.querySelectorAll('[data-fs]').forEach(b => b.onclick = () => { f = S.flights.find(x => x.id === b.dataset.fs) || f; draw(); });
+    };
+    draw(); document.body.appendChild(el);
+    el.onclick = e => { if (e.target === el) el.remove(); };
+  }
   function viewWelcome() {
     $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fly18"><h1>${WORDMARK}</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
