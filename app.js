@@ -352,15 +352,15 @@
   function wxHtml(w, open) {
     const [, label] = wxKind(w.code, w.day);
     const head = `<div class="wx-row"><div class="wx-ic">${wxIcon(w.code, w.day)}</div><div class="wx-main"><b>${Math.round(w.t)}°</b><span>${label}</span></div><div class="wx-side"><small>↑ ${Math.round(w.max)}° ↓ ${Math.round(w.min)}°</small><small>💨 ${Math.round(w.wind)} km/h</small><small>💧 ${w.rain}%</small></div></div>`;
-    if (!open) return head + '<div class="wx-hint">Touche pour actualiser et voir les prochaines heures</div>';
+    if (!open) return head + '<div class="wx-hint">Touche pour voir les prochaines heures</div>';
     const hrs = (w.hours || []).map(h => `<div class="wx-h"><small>${h.h}h</small>${wxIcon(h.code, h.day, 'mini')}<b>${Math.round(h.t)}°</b><small class="${h.p >= 50 ? 'wet' : ''}">${h.p}%</small></div>`).join('');
-    return head + wxNext(w) + (hrs ? `<div class="wx-hours">${hrs}</div>` : '') + `<div class="wx-hint">Mis à jour à ${new Date(w.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · touche pour actualiser</div>`;
+    return head + wxNext(w) + (hrs ? `<div class="wx-hours">${hrs}</div>` : '') + `<div class="wx-hint">Mis à jour à ${new Date(w.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · touche pour replier</div>`;
   }
   let wxOpen = false, wxBusy = false;
   function loadWeather(force) {
     const el = document.getElementById('wx'); if (!el) return;
     const show = w => { const e = document.getElementById('wx'); if (e && w) { e.innerHTML = wxHtml(w, wxOpen); e.hidden = false; e.classList.toggle('busy', wxBusy); } };
-    if (!el.onclick) el.onclick = () => { if (wxBusy) return; wxOpen = true; loadWeather(true); };
+    if (!el.onclick) el.onclick = () => { if (wxBusy) return; if (wxOpen) { wxOpen = false; const w = LS.get('fw_wx', null); if (w) el.innerHTML = wxHtml(w, false); return; } wxOpen = true; loadWeather(true); };
     const cached = LS.get('fw_wx', null);
     if (cached) show(cached);
     if (!force && cached && Date.now() - cached.at < 30 * 60000) return;
@@ -1163,10 +1163,12 @@
     else {
       const dc = C.distance(P, gps.center), df = C.distance(P, gps.front), db = C.distance(P, gps.back);
       const club = C.suggestClub(dc, S.me.bag);
-      html = `<div class="dist"><div><small>Avant</small><b>${df != null ? df : '–'}</b></div><div class="mid"><small>Centre</small><b>${dc}</b><small>m</small></div><div><small>Arrière</small><b>${db != null ? db : '–'}</b></div></div>
-        ${club && dc < 300 ? `<div class="club">➜ ${esc(club.club)} <small>(${club.dist} m carry)</small></div>` : ''}`;
+      const m = S.measure;
+      html = `<div class="gband"><div class="gs"><small>Avant</small><b>${df != null ? df : '–'}</b></div><div class="gc"><b>${dc}</b><small>m</small></div><div class="gs"><small>Arrière</small><b>${db != null ? db : '–'}</b></div>
+        <div class="gclub">${club && dc < 300 ? `<b>${esc(club.club)}</b><small>${club.dist} m carry</small>` : ''}</div>
+        ${m ? `<button class="gmeas on" data-ms="stop"><b>${C.distance(m, P)} m</b><small>OK</small></button>` : `<button class="gmeas" data-ms="start" title="Mesurer mon coup (±${P.acc} m)">📏<small>Coup</small></button>`}</div>`;
     }
-    if (P) {
+    if (P && !gps.center) {
       const m = S.measure;
       html += `<div class="measure">${m ? `Coup mesuré : <b>${C.distance(m, P)} m</b> <button class="btn sm" data-ms="stop">OK</button>` : '<button class="btn ghost sm" data-ms="start">📏 Mesurer mon coup</button>'}<small class="acc">précision ±${P.acc} m</small></div>`;
     }
