@@ -2026,7 +2026,8 @@
       const B = {}; used.forEach(k => (B[k] = { pts: 0, det: {}, n: 0, holes: holes.filter(h => blockOf(h) === k) }));
       const add = (h, k, v) => { const b = B[blockOf(h)]; if (!b) return; b.pts += v; b.det[k] = (b.det[k] || 0) + v; };
       const tee = (course.tees || []).find(t => t.id === (p.tee || g.game.tee)) || (course.tees || [])[0];
-      const ix = p.idx != null && p.idx !== '' ? Number(p.idx) : null;
+      const ix = p.idx != null && p.idx !== '' ? Math.min(36, Number(p.idx)) : null; // index plafonné à 36 pour le Fly Tour
+      const nt = ix != null && !isNaN(ix) ? ' net' : '';
       const recv = ix != null && !isNaN(ix) ? C.strokesPerHole(C.playingHandicap(ix, tee, course, g.game.mode), course, g.game.mode) : {};
       holes.forEach(h => {
         const c = rows[h]; if (!c || (c.strokes == null && !c.pickup)) return;
@@ -2035,13 +2036,13 @@
         if (c.pickup) return add(h, 'Croix', -4);
         const par = course.holes[h - 1].par, diff = c.strokes - par - (recv[h] || 0);
         if (c.strokes === 1) add(h, 'Trou en un', 500);
-        else if (diff <= -3) add(h, 'Albatros', 250);
-        else if (diff === -2) add(h, 'Eagle', 15);
-        else if (diff === -1) add(h, 'Birdie', 5);
-        else if (diff === 0) add(h, 'Par', 2);
-        else if (diff === 1) add(h, 'Bogey', -1);
-        else if (diff === 2) add(h, 'Double bogey', -2);
-        else add(h, 'Triple ou plus', -3);
+        else if (diff <= -3) add(h, 'Albatros' + nt, 250);
+        else if (diff === -2) add(h, 'Eagle' + nt, 15);
+        else if (diff === -1) add(h, 'Birdie' + nt, 5);
+        else if (diff === 0) add(h, 'Par' + nt, 2);
+        else if (diff === 1) add(h, 'Bogey' + nt, -1);
+        else if (diff === 2) add(h, 'Double bogey' + nt, -2);
+        else add(h, 'Triple+' + nt, -3);
       });
       ev.filter(e => e.type === 'rouge' && e.player_id === p.id).forEach(e => add(e.hole || holes[0], 'Rouges', -3));
       // Nice shots « fair-play » : comptent seulement s'ils viennent d'un autre joueur, 1 par trou, 3 max par partie
@@ -2144,8 +2145,8 @@
       const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '🏆 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
       const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}${tab === 'year' && d.cups && d.cups[r.dev] ? ` <span class="cup">🏆×${d.cups[r.dev]}</span>` : ''}<small>${tab === 'year' ? r.games + ' partie' + (r.games > 1 ? 's' : '') : r.kept + '/' + BEST_BLOCKS + ' × 9 trous'}</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
       const mine = rows.find(r => r.dev === S.me.deviceId);
-      const det = mine ? `<h2>Mes points</h2><div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
-      const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné, sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Seules les parties terminées comptent. Chaque mois est une étape : remise à zéro le 1er, et le premier remporte la <b>Fly Cup</b>. La saison cumule toutes les étapes de l'année.</p></details>`;
+      const det = mine ? `<h2>Mes points</h2>${S.me.index !== '' && S.me.index != null ? `<p class="hint" style="margin:-4px 0 8px">Compté en net avec ton index (${esc(String(S.me.index))}) : tes coups reçus sont déduits trou par trou. Un bogey brut sur un trou où tu reçois 1 coup = un par net. Index plafonné à 36 pour le Fly Tour.</p>` : ''}<div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
+      const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné (plafonné à 36), sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Seules les parties terminées comptent. Chaque mois est une étape : remise à zéro le 1er, et le premier remporte la <b>Fly Cup</b>. La saison cumule toutes les étapes de l'année.</p></details>`;
       $app.querySelector('main').innerHTML = `<div class="seg statseg">${tabs.map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`).join('')}</div>${podium}${list}${det}${rules}`;
       $app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => viewSeason(b.dataset.st));
     };
