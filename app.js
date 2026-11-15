@@ -369,6 +369,7 @@
     const done = () => { wxBusy = false; const e = document.getElementById('wx'); if (e) e.classList.remove('busy'); };
     navigator.geolocation.getCurrentPosition(p => {
       const lat = p.coords.latitude.toFixed(3), lng = p.coords.longitude.toFixed(3);
+      LS.set('fw_lastpos', { lat: p.coords.latitude, lng: p.coords.longitude });
       fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,is_day&minutely_15=precipitation&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=2&forecast_minutely_15=8`, { cache: 'no-store' })
         .then(r => r.json()).then(d => {
           if (!d.current) return;
@@ -864,7 +865,7 @@
         <button class="btn big" id="n-go">Créer la partie</button>
       </main>`;
       updateSyncBadge();
-      const bind = (id, k) => { $app.querySelector(id).onchange = e => { st[k] = e.target.value; draw(); }; };
+      const bind = (id, k) => { $app.querySelector(id).onchange = e => { st[k] = e.target.value; if (k === 'courseId') st.picked = true; draw(); }; };
       bind('#n-course', 'courseId'); bind('#n-tee', 'tee'); bind('#n-mode', 'mode'); bind('#n-format', 'format');
       const xs = $app.querySelector('#n-xcap'); if (xs) xs.onchange = e => { st.xcap = Number(e.target.value); };
       $app.querySelector('#n-hcp').onchange = e => { st.hcp = e.target.checked; if (!st.hcp && st.format === 'net') st.format = 'brut'; draw(); };
@@ -900,7 +901,16 @@
         location.hash = '#/game/' + id;
       };
     };
+    // golf le plus proche présélectionné (position récente, puis GPS)
+    const pickNearest = pos => {
+      if (preCourse || st.picked || !pos) return;
+      let best = null, bd = Infinity;
+      courses.forEach(c => { if (!c.center) return; const d = C.distance(pos, c.center); if (d != null && d < bd) { bd = d; best = c; } });
+      if (best && best.id !== st.courseId) { st.courseId = best.id; if (location.hash.startsWith('#/new')) draw(); }
+    };
+    pickNearest(LS.get('fw_lastpos', null));
     draw();
+    if (!preCourse && navigator.geolocation) navigator.geolocation.getCurrentPosition(p => { const pos = { lat: p.coords.latitude, lng: p.coords.longitude }; LS.set('fw_lastpos', pos); pickNearest(pos); }, () => { }, { enableHighAccuracy: false, maximumAge: 600000, timeout: 10000 });
   }
 
   /* --- Rejoindre --- */
