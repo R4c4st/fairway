@@ -557,6 +557,46 @@ html[data-theme=dark] .tile.trt{background:#2a2410;border-color:#6b5512;color:#f
 .poptr svg{width:96px;height:96px;filter:drop-shadow(0 6px 12px #0003)}
 .invbar{display:flex;align-items:center;gap:12px;width:100%;margin:10px 0 0;padding:8px 14px;background:var(--card);border:1px solid var(--bd);border-radius:14px;color:var(--tx);font:inherit;text-align:left;cursor:pointer}
 .invbar i{width:30px;height:30px;flex:none}.invbar i svg{width:100%;height:100%}.invbar div{flex:1;display:flex;flex-direction:column;line-height:1.25}.invbar b{font-size:15px}.invbar small{font-size:12px;color:var(--mu)}.invbar>span{font-size:22px;color:var(--mu)}
+.wxs{position:relative;overflow:hidden;border:0;color:#14201a}
+.wxs>*:not(.wx-fx){position:relative;z-index:1}
+.wx-fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}.wx-fx i{position:absolute;display:block}
+.wxs-sun{background:linear-gradient(135deg,#fff6d8,#ffe7a3 55%,#ffd27a)}
+.wxs-part{background:linear-gradient(135deg,#e3f1ff,#cfe6fb 60%,#fff1c9)}
+.wxs-cloud{background:linear-gradient(135deg,#eef1f4,#d7dde3)}
+.wxs-fog{background:linear-gradient(180deg,#eef0f0,#dfe3e2)}
+.wxs-rain{background:linear-gradient(180deg,#cfd9e3,#aebdcb)}
+.wxs-snow{background:linear-gradient(180deg,#f4f8fc,#dde8f3)}
+.wxs-moon,.wxs-cloudn{background:linear-gradient(160deg,#1c2b4a,#2d3f66)}
+.wxs-storm{background:linear-gradient(180deg,#3a4250,#232831)}
+.wxs-moon,.wxs-cloudn,.wxs-storm{color:#f1f4f8}.wxs-moon small,.wxs-cloudn small,.wxs-storm small,.wxs-moon span,.wxs-cloudn span,.wxs-storm span,.wxs-moon .wx-hint,.wxs-cloudn .wx-hint,.wxs-storm .wx-hint{color:#d6deea!important}
+.wxs-moon b,.wxs-cloudn b,.wxs-storm b{color:#fff!important}
+.wxs-rain .wx-hint,.wxs-rain small{color:#3d4b59}
+.fx-sun{right:-34px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#fff7c2 0,#ffd54a 35%,#ffd54a00 70%);animation:fxpulse 4s ease-in-out 2 alternate}
+.fx-sun.sm{right:-20px;top:-50px;width:120px;height:120px;opacity:.8}
+.fx-moon{right:22px;top:12px;width:34px;height:34px;border-radius:50%;box-shadow:-9px 4px 0 0 #f4e7b4;opacity:.9}
+.fx-star{width:2px;height:2px;border-radius:50%;background:#fff;animation:fxtw 1.6s ease-in-out 3 alternate}
+.fx-cloud{width:90px;height:30px;border-radius:30px;background:#fff;opacity:.55;animation:fxdrift 14s ease-in-out 1 both}
+.fx-cloud:before,.fx-cloud:after{content:'';position:absolute;background:inherit;border-radius:50%}.fx-cloud:before{width:40px;height:40px;left:14px;top:-18px}.fx-cloud:after{width:30px;height:30px;left:44px;top:-12px}
+.wxs-cloud .fx-cloud{background:#fff;opacity:.6}.wxs-cloudn .fx-cloud{background:#8193b5;opacity:.35}.wxs-fog .fx-cloud{opacity:.4}
+.fx-fog{left:-10%;right:-10%;height:22px;top:40%;background:linear-gradient(90deg,#fff0,#fff9,#fff0);filter:blur(3px);animation:fxfog 9s ease-in-out 1 both}.fx-fog.b{top:68%;animation-direction:reverse}
+.fx-drop{top:-20px;width:1.5px;height:16px;background:linear-gradient(#fff0,#5b7690);opacity:.55;transform:rotate(12deg);animation:fxrain .9s linear 4 both}
+.wxs-storm .fx-drop{background:linear-gradient(#fff0,#c9d5e6)}
+.fx-flash{inset:0;background:#fff;opacity:0;animation:fxflash 3.5s 1s 2}
+.fx-flake{top:-8px;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 2px #9fb4c9;animation:fxsnow 4s linear 2 both}
+@keyframes fxpulse{to{transform:scale(1.08);opacity:.85}}
+@keyframes fxtw{from{opacity:.2}to{opacity:1}}
+@keyframes fxdrift{from{margin-left:-14px}to{margin-left:14px}}
+@keyframes fxfog{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
+@keyframes fxrain{from{transform:translate(0,0) rotate(12deg)}to{transform:translate(-30px,190px) rotate(12deg)}}
+@keyframes fxsnow{from{transform:translate(0,0)}to{transform:translate(12px,190px)}}
+@keyframes fxflash{0%,88%,100%{opacity:0}90%{opacity:.55}92%{opacity:0}94%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.wx-fx i{animation:none!important}}
+.top{background-image:url(turf.webp)!important;background-size:200px 200px!important;background-blend-mode:overlay}
+.top{background-color:var(--gd)!important}
+.top{text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.wx.compact{padding:6px 12px}.wx.compact .wx-hint{display:none}.wx.compact .wx-row{gap:10px}
+.wx.compact .wx-ic svg{width:34px;height:34px}.wx.compact .wx-main{flex-direction:row;align-items:baseline;gap:8px}.wx.compact .wx-main b{font-size:22px}
+.wx.compact .wx-side{flex-direction:row;gap:10px}.wx.compact .wx-side small{font-size:12px}
 </style>
 </head>
 <body>

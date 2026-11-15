@@ -361,11 +361,25 @@
     const hrs = (w.hours || []).map(h => `<div class="wx-h"><small>${h.h}h</small>${wxIcon(h.code, h.day, 'mini')}<b>${Math.round(h.t)}°</b><small class="${h.p >= 50 ? 'wet' : ''}">${h.p}%</small></div>`).join('');
     return head + wxNext(w) + (hrs ? `<div class="wx-hours">${hrs}</div>` : '') + `<div class="wx-hint">Mis à jour à ${new Date(w.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · touche pour replier</div>`;
   }
+  // Ambiance de la tuile météo selon le temps qu'il fait (léger : CSS uniquement, animation brève)
+  function wxSkin(el, w) {
+    const k = wxKind(w.code, w.day)[0];
+    const skin = k === 'part' ? (w.day ? 'part' : 'cloudn') : (k === 'cloud' && !w.day ? 'cloudn' : k);
+    el.className = el.className.split(' ').filter(c => c && !c.startsWith('wxs')).join(' ') + ' wxs wxs-' + skin;
+    let fx = '';
+    const R = n => Array.from({ length: n }, () => Math.random());
+    if (skin === 'sun') fx = '<i class="fx-sun"></i>';
+    else if (skin === 'moon') fx = R(14).map((r, i) => `<i class="fx-star" style="left:${(i * 37 + r * 20) % 100}%;top:${8 + (i * 53 % 70)}%;animation-delay:${r * 3}s"></i>`).join('');
+    else if (['part', 'cloud', 'cloudn', 'fog'].includes(skin)) fx = (skin === 'part' ? '<i class="fx-sun sm"></i>' : '') + [[-5, 6, 1], [38, 0, .8], [70, 14, 1.1]].map(([l, t, sc], i) => `<i class="fx-cloud" style="left:${l}%;top:${t}px;transform:scale(${sc});animation-delay:${-i * 7}s"></i>`).join('') + (skin === 'fog' ? '<i class="fx-fog"></i><i class="fx-fog b"></i>' : '');
+    else if (skin === 'rain' || skin === 'storm') fx = R(26).map((r, i) => `<i class="fx-drop" style="left:${(i * 3.9 + r * 3) % 100}%;animation-delay:${r * 1.2}s;animation-duration:${.7 + r * .4}s"></i>`).join('') + (skin === 'storm' ? '<i class="fx-flash"></i>' : '');
+    else if (skin === 'snow') fx = R(18).map((r, i) => `<i class="fx-flake" style="left:${(i * 5.6 + r * 4) % 100}%;animation-delay:${r * 3}s;animation-duration:${3 + r * 2}s"></i>`).join('');
+    el.insertAdjacentHTML('afterbegin', `<div class="wx-fx" aria-hidden="true">${fx}</div>`);
+  }
   let wxOpen = false, wxBusy = false;
   function loadWeather(force) {
     const el = document.getElementById('wx'); if (!el) return;
-    const show = w => { const e = document.getElementById('wx'); if (e && w) { e.innerHTML = wxHtml(w, wxOpen); e.hidden = false; e.classList.toggle('busy', wxBusy); } };
-    if (!el.onclick) el.onclick = () => { if (wxBusy) return; if (wxOpen) { wxOpen = false; const w = LS.get('fw_wx', null); if (w) el.innerHTML = wxHtml(w, false); return; } wxOpen = true; loadWeather(true); };
+    const show = w => { const e = document.getElementById('wx'); if (e && w) { e.innerHTML = wxHtml(w, wxOpen); e.hidden = false; e.classList.toggle('busy', wxBusy); wxSkin(e, w); } };
+    if (!el.onclick) el.onclick = () => { if (wxBusy) return; if (wxOpen) { wxOpen = false; const w = LS.get('fw_wx', null); if (w) { el.innerHTML = wxHtml(w, false); wxSkin(el, w); } return; } wxOpen = true; loadWeather(true); };
     const cached = LS.get('fw_wx', null);
     if (cached) show(cached);
     if (!force && cached && Date.now() - cached.at < 30 * 60000) return;
@@ -958,7 +972,7 @@
     };
     $app.innerHTML = topbar('Fairway', null, 'me') + `<main>
       ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
-      <div id="wx" class="wx" hidden></div>
+      <div id="wx" class="wx${open.length || potes.length ? ' compact' : ''}" hidden></div>
       <div id="online"></div>
       ${installBar()}
       <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
