@@ -755,7 +755,7 @@
     setTimeout(trackPresence, 300);
     if (!S.me.name && r !== 'join' && r !== 'profile') return viewWelcome();
     if (r === 'new') return viewNew(a ? decodeURIComponent(a) : null);
-    if (r === 'game' && a) return viewGame(a);
+    if (r === 'game' && a) { if (S.openGid !== a) { S.openGid = a; S.tab = null; S.mapEditMode = false; } return viewGame(a); }
     if (r === 'join' && a) return viewJoin(a);
     if (r === 'courses') return viewCourses();
     if (r === 'course' && a) return viewCourseEdit(a);
@@ -974,6 +974,7 @@
       S.hole[gid] = holes.find(h => !sc[h]) || holes[0];
     }
     const spect = !!g.follow;
+    if (!S.tab) S.tab = spect || g.game.status === 'done' ? 'classement' : 'trou';
     if (spect && (S.tab === 'trou' || S.tab === 'carte')) S.tab = 'classement';
     const tabs = spect ? [['classement', 'Live'], ['score', 'Carte de score']] : [['trou', 'Trou'], ['carte', 'Carte'], ['classement', 'Classement'], ['score', 'Carte de score']];
     $app.innerHTML = topbar(g.game.course.name, spect ? '#/live' : '#/', spect ? '<span class="specbadge">👀 Spectateur</span>' : `<button class="aatg ${S.me.big ? 'on' : ''}" id="g-big" aria-label="Taille du texte"><small>A</small>A</button>`) +
@@ -1420,7 +1421,7 @@
       el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         const g = list.find(x => x.game.id === b.dataset.g);
         if (!S.games[g.game.id]) { S.games[g.game.id] = { ...g, mine: false, follow: true, watch: true }; saveGames(); subscribeMe(); }
-        S.tab = 'classement'; location.hash = '#/game/' + g.game.id;
+        S.tab = 'classement'; S.openGid = g.game.id; location.hash = '#/game/' + g.game.id;
       });
     };
     await draw();
