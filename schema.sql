@@ -148,3 +148,7 @@ notify pgrst, 'reload schema';
 -- ===== v6 : équipes (scramble / combo) =====
 alter table public.games add column if not exists teams jsonb;
 notify pgrst, 'reload schema';
+
+-- Classement de la saison (opt-in)
+alter table public.profiles add column if not exists season boolean not null default false;
+notify pgrst, 'reload schema';

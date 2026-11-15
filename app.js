@@ -466,7 +466,7 @@
   /* ---------- Profil serveur & partenaires ---------- */
   function syncProfile() {
     saveMe();
-    push({ t: 'upsert', table: 'profiles', row: { device_id: S.me.deviceId, code: S.me.code, name: S.me.name, idx: S.me.index === '' || S.me.index == null ? null : Number(S.me.index), tee: S.me.tee, bag: S.me.bag, partners: S.me.partners, updated_at: new Date().toISOString() } });
+    push({ t: 'upsert', table: 'profiles', row: { device_id: S.me.deviceId, code: S.me.code, name: S.me.name, idx: S.me.index === '' || S.me.index == null ? null : Number(S.me.index), tee: S.me.tee, bag: S.me.bag, partners: S.me.partners, season: !!S.me.season, updated_at: new Date().toISOString() } });
   }
   async function restoreProfile(code) {
     if (!remoteOn()) throw new Error('Serveur non configuré.');
@@ -475,7 +475,7 @@
     if (!data || !data.length) throw new Error('Aucun profil avec ce code.');
     const r = data[0];
     const oldId = S.me.deviceId, keep = { theme: S.me.theme, big: S.me.big, detect: S.me.detect, visible: S.me.visible, follow: S.me.follow, xcap: S.me.xcap };
-    S.me = { ...keep, deviceId: r.device_id, code: r.code, name: r.name || '', index: r.idx == null ? '' : String(r.idx), tee: r.tee || 'jaune', bag: r.bag || S.me.bag, partners: r.partners || [] };
+    S.me = { ...keep, deviceId: r.device_id, code: r.code, name: r.name || '', index: r.idx == null ? '' : String(r.idx), tee: r.tee || 'jaune', bag: r.bag || S.me.bag, partners: r.partners || [], season: !!r.season };
     saveMe();
     // l'ancien profil de cet appareil devient un doublon : on le supprime (et on rattache ses parties)
     if (oldId && oldId !== r.device_id) {
@@ -738,6 +738,12 @@
   /* ---------- Fin de partie : la tournée ---------- */
   function celebrate(gid) {
     setTimeout(checkTrophies, 6000);
+    if (S.me.season) setTimeout(() => {
+      const g0 = S.games[gid]; if (!g0) return;
+      const mine = gameBlocks(g0)[S.me.deviceId]; if (!mine) return;
+      const pts = mine.blocks.reduce((a, b) => a + b.pts, 0);
+      refreshSeason().then(d => { const i = d.cur.findIndex(r => r.dev === S.me.deviceId); toast(`🏆 ${pts >= 0 ? '+' : ''}${pts} pts sur cette partie${i >= 0 ? ' · tu es ' + (i + 1) + (i ? 'e' : 'er') + ' de ' + MOIS[+d.month.slice(5) - 1] : ''}`); }).catch(() => { });
+    }, 5200);
     const g = S.games[gid]; if (!g) return;
     const course = gameCourse(g);
     const pay = gamePayers(g);
@@ -897,6 +903,7 @@
     if (r === 'course' && a) return viewCourseEdit(a);
     if (r === 'profile') return viewProfile();
     if (r === 'stats') return viewStats();
+    if (r === 'classement') return viewSeason();
     if (r === 'live') return viewLive();
     if (r === 'copains') return viewCopains();
     if (r === 'admin' && a && isAdmin()) return viewAdminFlags(decodeURIComponent(a));
@@ -954,18 +961,23 @@
       <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
       ${installBar()}
-      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a><button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button><a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
+      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Classement</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 4).map(histCard).join('') + (done.length > 4 ? `<a class="morelink" href="#/stats">Les ${done.length - 4} autres parties dans Stats ›</a>` : '') : '<p class="muted">Aucune partie terminée.</p>'}
+      ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le classement de la saison</b><small>Des points à chaque partie, un podium chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
+      ${S.me.season ? `<button class="invbar" data-act="invite"><i>${FW_IC('invite')}</i><div><b>Inviter un pote</b><small>QR code pour installer Fly18 ou rejoindre ta partie</small></div><span>›</span></button>` : ''}
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
     refreshOnlineUI();
     loadWeather();
+    if (S.me.season) refreshSeason().then(d => { const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); }).catch(() => { });
+    const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Classement activé 🏆'); viewHome(); };
+    const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
     bindHist($app);
-    $app.querySelector('[data-act=invite]').onclick = inviteSheet;
+    $app.querySelectorAll('[data-act=invite]').forEach(b => b.onclick = inviteSheet);
     const ib = $app.querySelector('#installbar'); if (ib) ib.onclick = promptInstall;
   }
 
@@ -1976,6 +1988,165 @@
   }
 
   /* --- Bienvenue (1re installation) --- */
+
+  /* ---------- Classement de la saison (points par mois) ---------- */
+  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Pas passé les rouges', -3], ['Nice shot reçu d\'un pote (3 max / partie)', 2], ['Nice shot donné à un pote (3 max / partie)', 1], ['Participation (par 9 trous)', 5], ['Victoire', 5]];
+  const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  const monthKey = d => d.slice(0, 7);
+  const monthLabel = k => { const [y, m] = k.split('-'); return MOIS[+m - 1] + ' ' + y; };
+  // points d'une partie terminée, découpée en blocs de 9 trous (aller / retour), par joueur inscrit
+  function gameBlocks(g) {
+    const out = {}; if (g.game.status !== 'done') return out;
+    const course = gameCourse(g); if (!course || !course.holes) return out;
+    const holes = C.holesFor(g.game.mode, course.holes.length);
+    const team = isTeamGame(g);
+    const ps = indivPlayers(g).filter(p => p.device_id);
+    const sc = scoresOf(g); const ev = g.events || [];
+    const blockOf = h => (h <= 9 ? 0 : 1);
+    const used = [...new Set(holes.map(blockOf))];
+    ps.forEach(p => {
+      const rows = sc[p.id] || {};
+      const B = {}; used.forEach(k => (B[k] = { pts: 0, det: {}, n: 0, holes: holes.filter(h => blockOf(h) === k) }));
+      const add = (h, k, v) => { const b = B[blockOf(h)]; if (!b) return; b.pts += v; b.det[k] = (b.det[k] || 0) + v; };
+      const tee = (course.tees || []).find(t => t.id === (p.tee || g.game.tee)) || (course.tees || [])[0];
+      const ix = p.idx != null && p.idx !== '' ? Number(p.idx) : null;
+      const recv = ix != null && !isNaN(ix) ? C.strokesPerHole(C.playingHandicap(ix, tee, course, g.game.mode), course, g.game.mode) : {};
+      holes.forEach(h => {
+        const c = rows[h]; if (!c || (c.strokes == null && !c.pickup)) return;
+        B[blockOf(h)].n++;
+        if (team) return; // en équipe : pas de score individuel
+        if (c.pickup) return add(h, 'Croix', -4);
+        const par = course.holes[h - 1].par, diff = c.strokes - par - (recv[h] || 0);
+        if (c.strokes === 1) add(h, 'Trou en un', 500);
+        else if (diff <= -3) add(h, 'Albatros', 250);
+        else if (diff === -2) add(h, 'Eagle', 15);
+        else if (diff === -1) add(h, 'Birdie', 5);
+        else if (diff === 0) add(h, 'Par', 2);
+        else if (diff === 1) add(h, 'Bogey', -1);
+        else if (diff === 2) add(h, 'Double bogey', -2);
+        else add(h, 'Triple ou plus', -3);
+      });
+      ev.filter(e => e.type === 'rouge' && e.player_id === p.id).forEach(e => add(e.hole || holes[0], 'Rouges', -3));
+      // Nice shots « fair-play » : comptent seulement s'ils viennent d'un autre joueur, 1 par trou, 3 max par partie
+      const norm = x => (x || '').trim().toLowerCase();
+      const recvd = []; const seenH = new Set();
+      ev.filter(e => e.player_id === p.id && !['rouge', 'react', 'tournee'].includes(e.type) && norm(e.by_name) && norm(e.by_name) !== norm(p.name)).forEach(e => { if (!seenH.has(e.hole)) { seenH.add(e.hole); recvd.push(e); } });
+      recvd.slice(0, 3).forEach(e => add(e.hole || holes[0], 'Nice shots reçus', 2));
+      const given = []; const seenG = new Set();
+      ev.filter(e => !['rouge', 'react', 'tournee'].includes(e.type) && norm(e.by_name) === norm(p.name) && e.player_id && e.player_id !== p.id).forEach(e => { const k = e.player_id + ':' + e.hole; if (!seenG.has(k)) { seenG.add(k); given.push(e); } });
+      given.slice(0, 3).forEach(e => add(e.hole || holes[0], 'Nice shots donnés', 1));
+      Object.values(B).forEach(b => { if (b.n >= b.holes.length && b.holes.length) { b.pts += 5; b.det['Participation'] = (b.det['Participation'] || 0) + 5; } });
+      out[p.device_id] = { name: p.name, blocks: Object.values(B).filter(b => b.n >= b.holes.length && b.holes.length) };
+    });
+    // victoire : ajoutée au dernier bloc de la partie
+    if (!team && g.game.format !== 'match' && ps.length >= 2) {
+      const rows = C.leaderboard(ps, g.game, course, sc).filter(r => r.played);
+      if (rows.length >= 2) {
+        const key = r => g.game.format === 'stableford' ? -r.points : (g.game.format === 'brut' ? r.toPar : r.netToPar);
+        const best = Math.min(...rows.map(key));
+        rows.filter(r => key(r) === best).forEach(r => { const p = ps.find(x => x.id === r.playerId); const o = p && out[p.device_id]; const b = o && o.blocks[o.blocks.length - 1]; if (b) { b.pts += 5; b.det['Victoire'] = (b.det['Victoire'] || 0) + 5; } });
+      }
+    }
+    return out;
+  }
+  const BEST_BLOCKS = 4;
+  // classement d'un mois : somme des 4 meilleurs blocs de 9 trous
+  function standingsMonth(games, month, allowed) {
+    const per = {};
+    games.filter(g => (g.game.play_date || '').startsWith(month)).forEach(g => {
+      Object.entries(gameBlocks(g)).forEach(([dev, r]) => {
+        if (allowed && !allowed.has(dev)) return;
+        const t = per[dev] = per[dev] || { dev, name: r.name, blocks: [], games: 0 };
+        t.name = r.name; t.games++; r.blocks.forEach(b => t.blocks.push(b));
+      });
+    });
+    return Object.values(per).map(t => {
+      const best = t.blocks.slice().sort((a, b) => b.pts - a.pts).slice(0, BEST_BLOCKS);
+      const det = {}; best.forEach(b => Object.entries(b.det).forEach(([k, v]) => (det[k] = (det[k] || 0) + v)));
+      return { dev: t.dev, name: t.name, games: t.games, nines: t.blocks.length, kept: best.length, pts: best.reduce((a, b) => a + b.pts, 0), det };
+    }).sort((a, b) => b.pts - a.pts || b.nines - a.nines);
+  }
+  function standingsFor(games, period, allowed) {
+    if (period.length === 7) return standingsMonth(games, period, allowed);
+    // année : cumul des totaux mensuels
+    const tot = {};
+    for (let m = 1; m <= 12; m++) standingsMonth(games, period + '-' + String(m).padStart(2, '0'), allowed).forEach(r => {
+      const t = tot[r.dev] = tot[r.dev] || { dev: r.dev, name: r.name, pts: 0, games: 0, nines: 0, kept: 0, det: {} };
+      t.pts += r.pts; t.games += r.games; t.nines += r.nines; t.kept += r.kept; t.name = r.name;
+      Object.entries(r.det).forEach(([k, v]) => (t.det[k] = (t.det[k] || 0) + v));
+    });
+    return Object.values(tot).sort((a, b) => b.pts - a.pts);
+  }
+  async function fetchSeasonGames(year) {
+    let list = Object.values(S.games).filter(g => !g.follow && g.game.status === 'done');
+    if (remoteOn() && navigator.onLine) {
+      try {
+        const { data: games } = await sb.from('games').select('*').eq('status', 'done').gte('play_date', year + '-01-01').lte('play_date', year + '-12-31').limit(500);
+        if (games && games.length) {
+          const ids = games.map(g => g.id);
+          const [{ data: players }, { data: scores }, { data: events }] = await Promise.all([
+            sb.from('players').select('*').in('game_id', ids), sb.from('scores').select('*').in('game_id', ids), sb.from('events').select('*').in('game_id', ids)]);
+          list = games.map(game => { const g = { game, players: (players || []).filter(p => p.game_id === game.id), scores: {}, events: (events || []).filter(e => e.game_id === game.id) }; (scores || []).filter(r => r.game_id === game.id).forEach(r => { (g.scores[r.player_id] = g.scores[r.player_id] || {})[r.hole] = { strokes: r.strokes, putts: r.putts, pickup: r.pickup }; }); return g; });
+        }
+      } catch (e) { }
+    }
+    return list.filter(g => (g.game.play_date || '').startsWith(String(year)));
+  }
+  async function refreshSeason() {
+    const now = today(); const y = now.slice(0, 4);
+    const games = await fetchSeasonGames(y);
+    let prevGames = games;
+    const pm = prevMonthKey(monthKey(now));
+    if (!pm.startsWith(y)) prevGames = await fetchSeasonGames(pm.slice(0, 4));
+    let allowed = new Set(S.me.season ? [S.me.deviceId] : []);
+    if (remoteOn() && navigator.onLine) { try { const { data: pr } = await sb.from('profiles').select('device_id').eq('season', true); if (pr) allowed = new Set(pr.map(r => r.device_id).concat(S.me.season ? [S.me.deviceId] : [])); } catch (e) { } }
+    const data = { at: Date.now(), month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
+    LS.set('fw_season', data); return data;
+  }
+  function prevMonthKey(k) { let [y, m] = k.split('-').map(Number); m--; if (!m) { m = 12; y--; } return y + '-' + String(m).padStart(2, '0'); }
+  function seasonStrip(data) {
+    if (!data || data.month !== monthKey(today())) return '';
+    const rows = data.cur; const i = rows.findIndex(r => r.dev === S.me.deviceId);
+    const [y, m] = data.month.split('-').map(Number); const left = new Date(y, m, 0).getDate() - new Date().getDate();
+    const lbl = 'Saison de ' + MOIS[m - 1];
+    if (i < 0) return `<a class="sstrip" href="#/classement"><span class="rk">–</span><div><b>${lbl}</b><small>${rows.length ? 'Joue une partie pour entrer au classement' : 'Pas encore de points ce mois-ci'}</small></div><div class="pts"><b>0</b><small>pt</small></div></a>`;
+    const me = rows[i]; const ahead = i > 0 ? rows[i - 1] : null;
+    const sub = ahead ? `à ${ahead.pts - me.pts} pt${ahead.pts - me.pts > 1 ? 's' : ''} de ${esc(ahead.name)}` : (rows.length > 1 ? `${me.pts - rows[1].pts} pt${me.pts - rows[1].pts > 1 ? 's' : ''} d'avance 👑` : 'en tête 👑');
+    return `<a class="sstrip" href="#/classement"><span class="rk">${i + 1}<sup>${i ? 'e' : 'er'}</sup></span><div><b>${lbl}</b><small>${sub} · ${left > 0 ? left + ' jour' + (left > 1 ? 's' : '') + ' restant' + (left > 1 ? 's' : '') : 'dernier jour !'}</small></div><div class="pts"><b>${me.pts}</b><small>pts</small></div></a>`;
+  }
+  function viewSeason(tab) {
+    tab = tab || S.seasonTab || 'cur'; S.seasonTab = tab;
+    const data = LS.get('fw_season', null);
+    const draw = d => {
+      const rows = !d ? [] : tab === 'cur' ? d.cur : tab === 'prev' ? d.prev : d.yearRows;
+      const curM = monthKey(today());
+      const tabs = [['cur', MOIS[+curM.slice(5) - 1]], ['prev', MOIS[+prevMonthKey(curM).slice(5) - 1]], ['year', 'Année ' + curM.slice(0, 4)]];
+      const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '👑 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
+      const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}<small>${r.kept}/${BEST_BLOCKS} × 9 trous</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
+      const mine = rows.find(r => r.dev === S.me.deviceId);
+      const det = mine ? `<h2>Mes points</h2><div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
+      const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné, sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Seules les parties terminées comptent. Remise à zéro le 1er de chaque mois.</p></details>`;
+      $app.querySelector('main').innerHTML = `<div class="seg statseg">${tabs.map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`).join('')}</div>${podium}${list}${det}${rules}`;
+      $app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => viewSeason(b.dataset.st));
+    };
+    $app.innerHTML = topbar('Classement', '#/') + '<main><p class="muted">Calcul du classement…</p></main>';
+    updateSyncBadge();
+    if (data) draw(data);
+    refreshSeason().then(d => { if (location.hash === '#/classement') draw(d); });
+  }
+  // sacre du mois précédent (une fois)
+  function checkMonthCrown(d) {
+    if (!d || !d.prev || !d.prev.length) return;
+    if (LS.get('fw_crown', '') === d.prevKey) return;
+    LS.set('fw_crown', d.prevKey);
+    const r = d.prev; const el = document.createElement('div'); el.className = 'pop';
+    const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#ffd400', '#f7c531', '#fff', '#22a052'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
+    el.innerHTML = `<div class="conf">${conf}</div><div class="popcard"><div class="popemoji">👑</div><div class="popsub">Saison de ${MOIS[+d.prevKey.slice(5) - 1]}</div><div class="poptitle">${esc(r[0].name)} est sacré !</div><div class="popsub">${r[0].pts} pts${r[1] ? ' · 2e ' + esc(r[1].name) + ' (' + r[1].pts + ')' : ''}${r[2] ? ' · 3e ' + esc(r[2].name) + ' (' + r[2].pts + ')' : ''}</div></div>`;
+    document.body.appendChild(el); vibrate([40, 60, 40]);
+    const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 300); };
+    el.onclick = close; setTimeout(close, 6000);
+  }
+
   /* ---------- Fenêtres de dialogue maison (sans l'adresse du site) ---------- */
   function fwDialog(msg, { input = null, buttons }) {
     return new Promise(res => {
@@ -2068,6 +2239,7 @@
       <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via Aa en haut d'une partie)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>🏆 Classement de la saison<small>Points à chaque partie, classement du mois entre potes (tes 4 meilleurs 9 trous)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Couleur</label>
       <div class="colors">${Object.entries(window.FW_PALETTES || {}).map(([k, p]) => `<button data-col="${k}" class="${S.me.color === k ? 'on' : ''}" title="${esc(p.name)}"><i style="background:linear-gradient(135deg,${p.g},${p.gd})"></i><small>${esc(p.name)}</small></button>`).join('')}</div>
@@ -2107,6 +2279,7 @@
     $app.querySelector('#p-big').onchange = e => { S.me.big = e.target.checked; saveMe(); applyBig(); };
     $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
+    $app.querySelector('#p-season').onchange = e => { S.me.season = e.target.checked; S.me.seasonAsked = 1; syncProfile(); LS.set('fw_season', null); toast(S.me.season ? 'Classement activé 🏆' : 'Classement désactivé'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 🔭' : 'Suivi des potes coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
     $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return fwAlert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
