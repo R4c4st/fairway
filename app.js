@@ -1898,7 +1898,7 @@
     const played = mine.filter(g => wonGame(g) !== null);
     const wins = played.filter(g => wonGame(g) === true).length;
     const rougesTot = mine.reduce((n, g) => n + rougesIn(g), 0);
-    const palmares = `<h2>Palmarès</h2><div class="kpis three"><div><b>🏆 ${wins}</b><small>coupe${wins > 1 ? 's' : ''} remportée${wins > 1 ? 's' : ''}</small></div><div><b>${played.length ? Math.round(wins * 100 / played.length) + '%' : '–'}</b><small>de victoires (${wins}/${played.length})</small></div><div><b>🍺 ${rougesTot}</b><small>rouge${rougesTot > 1 ? 's' : ''} pas dépassé${rougesTot > 1 ? 's' : ''}</small></div></div>`;
+    const palmares = `<div class="kpis three palm"><div><b>🏆 ${wins}</b><small>coupe${wins > 1 ? 's' : ''} remportée${wins > 1 ? 's' : ''}</small></div><div><b>${played.length ? Math.round(wins * 100 / played.length) + '%' : '–'}</b><small>de victoires (${wins}/${played.length})</small></div><div><b>🍺 ${rougesTot}</b><small>rouge${rougesTot > 1 ? 's' : ''} pas dépassé${rougesTot > 1 ? 's' : ''}</small></div></div>`;
     // sélection selon le filtre
     let sel = rounds, single = null;
     if (mode === 'last') { single = rounds[0] || null; sel = single ? [single] : []; }
