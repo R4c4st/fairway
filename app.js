@@ -769,7 +769,7 @@
       ${open.length ? '<h2>En cours</h2>' + open.map(card).join('') : ''}
       ${potes.length ? '<h2>🔭 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
       <h2>Historique</h2>${done.length ? done.slice(0, 15).map(card).join('') : '<p class="muted">Aucune partie terminée.</p>'}
-      <div class="row3"><a class="btn ghost" href="#/stats">📊 Stats</a><a class="btn ghost" href="#/courses">🗺️ Parcours</a><a class="btn ghost" href="#/profile">⚙️ Réglages</a></div>
+      <div class="row3"><a class="btn ghost" href="#/stats"><i>📊</i>Stats</a><a class="btn ghost" href="#/courses"><i>🗺️</i>Parcours</a><a class="btn ghost" href="#/profile"><i>⚙️</i>Réglages</a></div>
     </main>`;
     updateSyncBadge();
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
