@@ -184,7 +184,7 @@ h2 .cnt{background:#22c55e;color:#fff;border-radius:99px;padding:1px 8px;font-si
 .welcome-golf .wlogo{width:84px;height:84px;border-radius:22px;margin-top:6px}
 .welcome-golf h2{text-align:center;margin:10px 0 2px;font-size:16px}
 .wg-name{font:900 26px/1.15 system-ui;color:var(--gd);margin-bottom:6px}
-html[data-theme=dark] .wg-name{color:#7fe0a0}
+html[data-theme=dark] .wg-name{color:var(--acc,#7fe0a0)}
 .wg-potes{font-weight:600}
 .gcard.pote{border-left:5px solid #ff9f1c}
 /* --- fun --- */
@@ -242,33 +242,33 @@ html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] .
 html[data-theme=dark] .sheet,html[data-theme=dark] .popcard{background:#151a17}
 html[data-theme=dark] .tabs button.on{background:#1d2a22;color:#e8efe9}
 html[data-theme=dark] .chips button.on,html[data-theme=dark] .pick button.on,html[data-theme=dark] .seg button.on{background:var(--g);color:#fff}
-html[data-theme=dark] .stepper button{background:#183623;color:#bfe9cc}
+html[data-theme=dark] .stepper button{background:var(--gl);color:var(--acc,#bfe9cc)}
 html[data-theme=dark] .val.dbl,html[data-theme=dark] .sc.dbl{color:#b78cff;border-color:#b78cff}
 html[data-theme=dark] .bar i.dbl{background:#b78cff}
 html[data-theme=dark] .paylist li,html[data-theme=dark] .lc-ev,html[data-theme=dark] .pushban{background:#2a2108;border-color:#5a4512;color:#f7e2a8}
 html[data-theme=dark] .pop.rouge .popcard{background:#2a2108}
 html[data-theme=dark] .pop.rouge .poptitle{color:#ffcf5a}
-html[data-theme=dark] .poptitle{color:#7fe0a0}
-html[data-theme=dark] .board .meRow{background:#16301f}
+html[data-theme=dark] .poptitle{color:var(--acc,#7fe0a0)}
+html[data-theme=dark] .board .meRow{background:var(--gl)}
 html[data-theme=dark] .gps{background:#0c2416}
-html[data-theme=dark] .welcome h1{color:#7fe0a0}
+html[data-theme=dark] .welcome h1{color:var(--acc,#7fe0a0)}
 html[data-theme=dark] .tdot{box-shadow:0 0 0 2px #000}
-html[data-theme=dark] .btn.ghost{background:var(--card);color:#bfe9cc;border-color:var(--bd)}
+html[data-theme=dark] .btn.ghost{background:var(--card);color:var(--acc,#bfe9cc);border-color:var(--bd)}
 html[data-theme=dark] .btn.danger{color:var(--red);border-color:#5a2226}
 html[data-theme=dark] .onchip{border-color:#1f4a2c}
-html[data-theme=dark] .kpis b{color:#7fe0a0}
-html[data-theme=dark] .code{color:#7fe0a0}
+html[data-theme=dark] .kpis b{color:var(--acc,#7fe0a0)}
+html[data-theme=dark] .code{color:var(--acc,#7fe0a0)}
 html[data-theme=dark] .qr svg{background:#fff;border-radius:8px}
-html[data-theme=dark] a{color:#7fe0a0}
+html[data-theme=dark] a{color:var(--acc,#7fe0a0)}
 html[data-theme=dark] .gcard,html[data-theme=dark] .livecard{color:var(--tx)}
-html[data-theme=dark] .tag{background:#183623;color:#9be7b4}
-html[data-theme=dark] .onchip small,html[data-theme=dark] .pname .mem,html[data-theme=dark] .sub .res,html[data-theme=dark] .tchip{color:#9be7b4}
-html[data-theme=dark] .tchip{background:#183623}
+html[data-theme=dark] .tag{background:var(--gl);color:var(--acc,#9be7b4)}
+html[data-theme=dark] .onchip small,html[data-theme=dark] .pname .mem,html[data-theme=dark] .sub .res,html[data-theme=dark] .tchip{color:var(--acc,#9be7b4)}
+html[data-theme=dark] .tchip{background:var(--gl)}
 html[data-theme=dark] .toast{background:#e8efe9;color:#000}
-html[data-theme=dark] .phasebar{background:#16301f}
+html[data-theme=dark] .phasebar{background:var(--gl)}
 html[data-theme=dark] .hn{background:#1d4a2c}
 html[data-theme=dark] a.btn{color:#fff}
-html[data-theme=dark] a.btn.ghost{color:#bfe9cc}
+html[data-theme=dark] a.btn.ghost{color:var(--acc,#bfe9cc)}
 
 /* ===== 👓 Mode parcours : gros caractères, simplifié ===== */
 .top .bigtg.on{background:#ffffff33;border-radius:10px}
@@ -321,6 +321,13 @@ html[data-big] .scard th,html[data-big] .scard td{font-size:18px}
 .admbtn{margin:-2px 0 10px;border-style:dashed}
 .statseg{margin:18px 0 6px}.statseg button{font-size:14px;padding:10px 4px}
 .statround{margin-top:8px}
+.colors{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.colors button,.logos button{border:2px solid var(--bd);background:var(--card);border-radius:12px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--tx)}
+.colors button.on,.logos button.on{border-color:var(--g);box-shadow:0 0 0 2px var(--g) inset}
+.colors i{width:34px;height:34px;border-radius:50%;display:block}
+.colors small,.logos small{font-size:12px;text-align:center}
+.logos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 10px}
+.logos img{width:52px;height:52px;border-radius:13px}
 </style>
 </head>
 <body>
@@ -328,6 +335,7 @@ html[data-big] .scard th,html[data-big] .scard td{font-size:18px}
 <script src="config.js"></script>
 <script src="core.js"></script>
 <script src="courses.js"></script>
+<script src="logos.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="app.js"></script>

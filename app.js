@@ -48,10 +48,18 @@
   function applyBig() { if (S.me.big) document.documentElement.dataset.big = '1'; else delete document.documentElement.dataset.big; }
   applyBig();
   const darkMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  if (!S.me.color) S.me.color = 'vert';
+  if (!S.me.logo) S.me.logo = 'drapeau';
+  if (window.FW_PALETTES && !window.FW_PALETTES[S.me.color]) S.me.color = 'vert';
+  const logoURL = () => window.fwLogoURL ? window.fwLogoURL(S.me.logo, S.me.color) : 'icon.svg';
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
-    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', dark ? '#0f2c1a' : '#14532d');
+    const p = (window.FW_PALETTES || {})[S.me.color] || (window.FW_PALETTES || {}).vert;
+    const st = document.documentElement.style;
+    if (p) { st.setProperty('--g', dark ? p.dg : p.g); st.setProperty('--gd', dark ? p.dgd : p.gd); st.setProperty('--gl', dark ? p.dgl : p.gl); st.setProperty('--acc', p.acc); }
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', p ? (dark ? p.dgd : p.gd) : '#14532d');
+    document.querySelectorAll('img.logo, img.wlogo').forEach(i => (i.src = logoURL()));
   }
   applyTheme();
   if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => { if (S.me.theme === 'auto') applyTheme(); });
@@ -334,7 +342,7 @@
     const potes = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId && m.course && here && m.course === here);
     const el = document.createElement('div'); el.className = 'modal';
     const conf = Array.from({ length: 28 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .5}s;background:${['#22a052', '#ffd400', '#fff', '#e8272b'][i % 4]}"></i>`).join('');
-    el.innerHTML = `<div class="sheet welcome-golf"><div class="conf">${conf}</div><img class="wlogo" src="icon.svg" alt=""><h2>Bienvenue au golf !</h2><div class="wg-name">${esc(course.name)}</div>
+    el.innerHTML = `<div class="sheet welcome-golf"><div class="conf">${conf}</div><img class="wlogo" src="${logoURL()}" alt=""><h2>Bienvenue au golf !</h2><div class="wg-name">${esc(course.name)}</div>
       <p>Bonne partie ${esc(S.me.name)} ⛳<br><small>Et que le dernier paie sa tournée 🍺</small></p>
       <div id="wg-live"></div>
       ${potes.length ? `<p class="wg-potes">${potes.map(m => '<i class="led"></i>' + esc(m.name)).join(' · ')} ${potes.length > 1 ? 'sont' : 'est'} aussi sur le parcours</p>` : ''}
@@ -633,7 +641,7 @@
 
   /* ---------- Rendu ---------- */
   function topbar(title, back, extra) {
-    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="icon.svg" alt="">'}<h1>${esc(title)}${title === 'Fairway' ? ' <span class="beta">Bêta version pour les copains</span>' : ''}</h1><span id="sync" class="sync"></span>${extra || ''}</header>`;
+    return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="' + logoURL() + '" alt="">'}<h1>${esc(title)}${title === 'Fairway' ? ' <span class="beta">Bêta version pour les copains</span>' : ''}</h1><span id="sync" class="sync"></span>${extra || ''}</header>`;
   }
   function route() {
     const h = location.hash.replace(/^#\/?/, '');
@@ -1661,7 +1669,7 @@
 
   /* --- Bienvenue (1re installation) --- */
   function viewWelcome() {
-    $app.innerHTML = `<main class="welcome"><img class="wlogo" src="icon.svg" alt="Fairway"><h1>Fairway</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
+    $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fairway"><h1>Fairway</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
       <div class="row2"><label>Index (facultatif)<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
       <button class="btn big full" id="w-go">C'est parti</button>
@@ -1686,6 +1694,10 @@
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>🔭 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
+      <label>Couleur</label>
+      <div class="colors">${Object.entries(window.FW_PALETTES || {}).map(([k, p]) => `<button data-col="${k}" class="${S.me.color === k ? 'on' : ''}" title="${esc(p.name)}"><i style="background:linear-gradient(135deg,${p.g},${p.gd})"></i><small>${esc(p.name)}</small></button>`).join('')}</div>
+      <label>Logo</label>
+      <div class="logos">${Object.keys(window.FW_LOGOS || {}).map(k => `<button data-lg="${k}" class="${S.me.logo === k ? 'on' : ''}"><img src="${window.fwLogoURL(k, S.me.color)}" alt=""><small>${esc(window.FW_LOGO_NAMES[k])}</small></button>`).join('')}</div>
       <label>Apparence</label>
       <div class="seg" id="p-theme">${[['auto', '📱 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([k, v]) => `<button data-th="${k}" class="${S.me.theme === k ? 'on' : ''}">${v}</button>`).join('')}</div>
       <p class="hint">🌙 Sombre : vrai noir, économise la batterie sur les écrans OLED. ☀️ Clair : plus lisible en plein soleil.</p>
@@ -1713,6 +1725,8 @@
       <div class="row2"><button class="btn ghost" id="p-exp">Exporter mes données</button><label class="btn ghost filebtn">Importer<input type="file" id="p-imp" accept="application/json" hidden></label></div>
     </main>`;
     updateSyncBadge();
+    $app.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { S.me.color = b.dataset.col; saveMe(); applyTheme(); viewProfile(); });
+    $app.querySelectorAll('[data-lg]').forEach(b => b.onclick = () => { S.me.logo = b.dataset.lg; saveMe(); applyTheme(); $app.querySelectorAll('[data-lg]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { S.me.theme = b.dataset.th; saveMe(); applyTheme(); $app.querySelectorAll('[data-th]').forEach(x => x.classList.toggle('on', x === b)); });
     $app.querySelector('#p-xcap').onchange = e => { S.me.xcap = Number(e.target.value); saveMe(); toast('Croix = par + ' + S.me.xcap + ' pour tes prochaines parties'); };
     $app.querySelector('#p-big').onchange = e => { S.me.big = e.target.checked; saveMe(); applyBig(); };
