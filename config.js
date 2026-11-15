@@ -1,5 +1,6 @@
 /* Configuration serveur (Supabase) — clé publique, faite pour être visible côté web. */
 window.FAIRWAY_CONFIG = {
   supabaseUrl: 'https://jifaszjdhretgorxlpvs.supabase.co',
-  supabaseAnonKey: 'sb_publishable_UDBqRN5A_sX5vQB5xvrV2Q_uC31GfyM'
+  supabaseAnonKey: 'sb_publishable_UDBqRN5A_sX5vQB5xvrV2Q_uC31GfyM',
+  admins: ['f37670e5-188e-4950-b68a-f585e2b9d046'] // profil(s) administrateur (Raph)
 };

@@ -59,7 +59,8 @@
   S.hidden = new Set(LS.get('fw_hidden', []));
   S.copains = LS.get('fw_copains', []);
   LS.set('fw_me', S.me);
-  S.seen = new Set();
+  S.seen = new Set(LS.get('fw_seen', []));
+  const markSeen = id => { if (!id || S.seen.has(id)) return; S.seen.add(id); LS.set('fw_seen', [...S.seen].slice(-3000)); };
   const saveGames = () => { LS.set('fw_games', S.games); scheduleBackup(); };
   const saveMe = () => { LS.set('fw_me', S.me); scheduleBackup(); };
   const saveCourses = () => { LS.set('fw_courses', S.customCourses); scheduleBackup(); };
@@ -132,7 +133,6 @@
       sb.from('events').select('*').eq('game_id', game.id).order('created_at')
     ]);
     const g = { game, players: players || [], scores: {}, events: events || [] };
-    (events || []).forEach(e => S.seen.add(e.id));
     (scores || []).forEach(r => { (g.scores[r.player_id] = g.scores[r.player_id] || {})[r.hole] = { strokes: r.strokes, putts: r.putts, pickup: r.pickup }; });
     return g;
   }
@@ -229,7 +229,7 @@
     if (p.eventType === 'DELETE') { g.events = g.events.filter(x => x.id !== e.id); saveGames(); liveRender(); return; }
     if (!g.events.some(x => x.id === e.id)) g.events.push(e);
     saveGames(); liveRender();
-    if (!S.seen.has(e.id)) { S.seen.add(e.id); eventPopup(g, e); }
+    if (!S.seen.has(e.id)) eventPopup(g, e);
   }
 
   /* ---------- Sauvegarde automatique (serveur) ---------- */
@@ -344,7 +344,7 @@
     const close = () => el.remove();
     el.querySelector('#wg-new').onclick = close; el.querySelector('#wg-x').onclick = close;
     el.onclick = e => { if (e.target === el) close(); };
-    const live = (await fetchLive()).filter(g => g.game.course_id === course.id);
+    const live = (await fetchLive()).filter(g => g.game.course_id === course.id && g.game.status !== 'done');
     const box = el.querySelector('#wg-live');
     if (box && live.length) box.innerHTML = `<a class="btn ghost full" href="#/live" id="wg-lv">📺 ${live.length} partie${live.length > 1 ? 's' : ''} en cours ici : rejoindre ou suivre</a>`, box.querySelector('#wg-lv').onclick = close;
   }
@@ -424,7 +424,7 @@
     const g = S.games[gid];
     const row = { id: uid(), game_id: gid, by_name: S.me.name || '?', created_at: new Date().toISOString(), ...ev };
     g.events = g.events || []; g.events.push(row); saveGames();
-    S.seen.add(row.id);
+    markSeen(row.id);
     push({ t: 'upsert', table: 'events', row });
     eventPopup(g, row);
   }
@@ -433,11 +433,24 @@
     push({ t: 'delete', table: 'events', match: { id } });
   }
   const popQueue = []; let popBusy = false;
-  function eventPopup(g, e) { popQueue.push({ g, e }); if (!popBusy) nextPopup(); }
+  function eventPopup(g, e) { if (popQueue.some(x => x.e.id === e.id)) return; popQueue.push({ g, e }); if (!popBusy) nextPopup(); }
+  // rejoue les moments forts pas encore vus sur ce téléphone (ouverture d'une partie, même terminée, ou de l'appli)
+  const replayOpenGames = () => Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done' && myPlayer(g)).forEach(replayUnseen);
+  function replayUnseen(g) {
+    if (!g || !g.events) return;
+    const todo = g.events.filter(e => e.type !== 'tournee' && !S.seen.has(e.id)).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+    if (!todo.length) return;
+    const show = todo.slice(-6);
+    todo.slice(0, -6).forEach(e => markSeen(e.id));
+    if (todo.length > 6) toast('+' + (todo.length - 6) + ' autres moments forts dans le classement');
+    show.forEach(e => eventPopup(g, e));
+  }
   function nextPopup() {
     const it = popQueue.shift(); if (!it) { popBusy = false; return; }
     popBusy = true;
     const { g, e } = it;
+    if (S.seen.has(e.id) && !it.force) { nextPopup(); return; }
+    markSeen(e.id);
     const p = g.players.find(x => x.id === e.player_id); const name = p ? p.name : '?';
     let emoji, title, sub;
     if (e.type === 'rouge') { emoji = '🍺'; title = name + " n'a pas passé les rouges !"; sub = 'Trou ' + e.hole + ' · une tournée de plus pour ' + name; }
@@ -626,6 +639,7 @@
     const h = location.hash.replace(/^#\/?/, '');
     const [r, a, b] = h.split('/');
     if (r !== 'game') { stopGPS(); unsubscribe(); }
+    if (r !== 'admin' && amap) { amap.remove(); amap = null; }
     setTimeout(trackPresence, 300);
     if (!S.me.name && r !== 'join' && r !== 'profile') return viewWelcome();
     if (r === 'new') return viewNew(a ? decodeURIComponent(a) : null);
@@ -637,6 +651,7 @@
     if (r === 'stats') return viewStats();
     if (r === 'live') return viewLive();
     if (r === 'copains') return viewCopains();
+    if (r === 'admin' && a && isAdmin()) return viewAdminFlags(decodeURIComponent(a));
     return viewHome();
   }
   window.addEventListener('hashchange', route);
@@ -685,7 +700,7 @@
       <div class="row3"><a class="btn ghost" href="#/stats">📊 Stats</a><a class="btn ghost" href="#/courses">🗺️ Parcours</a><a class="btn ghost" href="#/profile">⚙️ Réglages</a></div>
     </main>`;
     updateSyncBadge();
-    if (remoteOn()) fetchLive().then(list => { const el = document.getElementById('livecount'); if (el && list.length) el.textContent = '· ' + list.length + ' partie' + (list.length > 1 ? 's' : '') + ' en cours'; });
+    if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = '· ' + list.length + ' partie' + (list.length > 1 ? 's' : '') + ' en cours'; });
     refreshOnlineUI();
     $app.querySelector('[data-act=join]').onclick = () => { const c = prompt('Code de la partie (6 caractères) :'); if (c) location.hash = '#/join/' + c.trim().toUpperCase(); };
   }
@@ -837,8 +852,9 @@
     const lc = spect ? null : getCourse(g.game.course_id);
     S.flagTried = S.flagTried || new Set();
     if (lc && !lc._osm && !S.flagTried.has(lc.id) && !lc.holes.some(h => h.gps && h.gps.center) && navigator.onLine) { S.flagTried.add(lc.id); autoFlags(lc.id, 'auto'); }
-    if (remoteOn()) refreshGame(gid).then(ok => ok && liveRender());
+    if (remoteOn()) refreshGame(gid).then(ok => { if (ok) { liveRender(); replayUnseen(S.games[gid]); } });
     renderGameBody();
+    setTimeout(() => replayUnseen(S.games[gid]), 600);
   }
 
   function renderGameBody() {
@@ -1070,7 +1086,7 @@
   function renderMap(body, g) {
     const h = S.hole[g.game.id];
     body.innerHTML = holeChips(g, h) + `<div class="maptools">${[['tee', 'Départ'], ['front', 'Avant green'], ['center', 'Centre green'], ['back', 'Arrière green']].map(([k, v]) => `<button data-me="${k}" class="${S.mapEdit === k ? 'on' : ''}">${v}</button>`).join('')}</div>
-      <button class="btn ghost sm full" id="m-auto">🛰️ Trouver les drapeaux automatiquement</button><p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Touche la carte pour mesurer une distance. Choisis un repère ci-dessus pour placer les points du trou.'}</p>
+      <button class="btn ghost sm full" id="m-auto">🛰️ Trouver les drapeaux automatiquement</button>${isAdmin() ? `<a class="btn ghost sm full admbtn" href="#/admin/${encodeURIComponent(g.game.course_id)}/${h}">🛠️ Ajuster précisément (admin)</a>` : ''}<p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Touche la carte pour mesurer une distance. Choisis un repère ci-dessus pour placer les points du trou.'}</p>
       <div id="map"></div><div id="mapinfo" class="mapinfo"></div>`;
     body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { S.hole[g.game.id] = +b.dataset.h; destroyMap(); renderGameBody(); });
     body.querySelector('#m-auto').onclick = () => autoFlags(g.game.course_id).then(() => { destroyMap(); renderGameBody(); });
@@ -1206,7 +1222,7 @@
     if (!remoteOn()) return [];
     try {
       const since = new Date(Date.now() - 14 * 3600e3).toISOString();
-      const { data: games } = await sb.from('games').select('*').eq('status', 'open').gte('created_at', since).order('created_at', { ascending: false }).limit(30);
+      const { data: games } = await sb.from('games').select('*').or(`and(status.eq.open,created_at.gte.${since}),and(status.eq.done,play_date.eq.${today()})`).order('created_at', { ascending: false }).limit(30);
       if (!games || !games.length) return [];
       const ids = games.map(g => g.id);
       const [{ data: players }, { data: scores }, { data: events }] = await Promise.all([
@@ -1229,22 +1245,27 @@
     const draw = async () => {
       const list = await fetchLive();
       const el = document.getElementById('livebody'); if (!el) return;
-      if (!list.length) { el.innerHTML = '<div class="empty">⛳<p>Aucune partie en cours pour l\'instant.</p><small>Dès que des copains jouent, leurs parties apparaissent ici en direct.</small></div>'; return; }
-      el.innerHTML = '<p class="hint">Parties en cours des copains, mises à jour en direct. Touche une partie pour la suivre.</p>' + list.map(g => {
+      if (!list.length) { el.innerHTML = '<div class="empty">⛳<p>Aucune partie aujourd\'hui pour l\'instant.</p><small>Dès que des copains jouent, leurs parties apparaissent ici en direct.</small></div>'; return; }
+      const card = g => {
         const course = g.game.course; const holesAll = C.holesFor(g.game.mode, course.holes.length);
         const rows = standingsLite(g);
         const done = Math.max(0, ...g.players.map(p => holesAll.filter(h => (g.scores[p.id] || {})[h]).length));
         const lastEv = g.events.filter(e => e.type !== 'tournee').slice(-1)[0];
         const evTxt = lastEv ? (lastEv.type === 'rouge' ? '🍺 ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
         const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
-        return `<button class="livecard" data-g="${g.game.id}"><div class="lc-top"><b>${esc(course.name)}</b><span class="livedot">● LIVE</span></div>
-          <small>${FORMATS[g.game.format]} · trou ${Math.min(done + 1, holesAll.length)}/${holesAll.length}${mine ? ' · ta partie' : ''}</small>
+        const fin = g.game.status === 'done';
+        const pay = fin ? gamePayers(g) : null;
+        return `<button class="livecard ${fin ? 'fin' : ''}" data-g="${g.game.id}"><div class="lc-top"><b>${esc(course.name)}</b>${fin ? '<span class="findot">🏁 Terminée</span>' : '<span class="livedot">● LIVE</span>'}</div>
+          <small>${FORMATS[g.game.format]} · ${fin ? holesAll.length + ' trous' : 'trou ' + Math.min(done + 1, holesAll.length) + '/' + holesAll.length}${mine ? ' · ta partie' : ''}</small>
           <ol>${rows.slice(0, 4).map(r => `<li><span>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}</span><b>${esc(r.label)}</b></li>`).join('')}</ol>
-          ${evTxt ? `<div class="lc-ev">${evTxt}</div>` : ''}</button>`;
-      }).join('');
+          ${fin && pay && pay.last.length ? `<div class="lc-ev">🍻 Merci ${esc(pay.last.map(x => x.name).join(' et '))} !</div>` : (evTxt ? `<div class="lc-ev">${evTxt}</div>` : '')}</button>`;
+      };
+      const enCours = list.filter(g => g.game.status !== 'done'), finies = list.filter(g => g.game.status === 'done');
+      el.innerHTML = (enCours.length ? '<h2>● En cours</h2><p class="hint">Mises à jour en direct. Touche une partie pour la suivre.</p>' + enCours.map(card).join('') : '<p class="muted">Aucune partie en cours en ce moment.</p>')
+        + (finies.length ? '<h2>🏁 Terminées aujourd\'hui</h2>' + finies.map(card).join('') : '');
       el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         const g = list.find(x => x.game.id === b.dataset.g);
-        if (!S.games[g.game.id]) { S.games[g.game.id] = { ...g, mine: false, follow: true, watch: true }; (g.events || []).forEach(e => S.seen.add(e.id)); saveGames(); subscribeMe(); }
+        if (!S.games[g.game.id]) { S.games[g.game.id] = { ...g, mine: false, follow: true, watch: true }; saveGames(); subscribeMe(); }
         S.tab = 'classement'; location.hash = '#/game/' + g.game.id;
       });
     };
@@ -1283,6 +1304,100 @@
     draw(); document.body.appendChild(el);
     el.onclick = e => { if (e.target === el) el.remove(); };
     pullCopains().then(() => { if (el.parentNode) draw(); });
+  }
+
+  /* --- 🛠️ Admin : placement précis des drapeaux --- */
+  const isAdmin = () => ((S.cfg && S.cfg.admins) || (window.FAIRWAY_CONFIG && window.FAIRWAY_CONFIG.admins) || []).includes(S.me.deviceId);
+  let amap = null;
+  function viewAdminFlags(courseId) {
+    const course0 = getCourse(courseId); if (!course0) { location.hash = '#/courses'; return; }
+    const parts = location.hash.split('/');
+    const st = { h: Math.max(1, Math.min(course0.holes.length, parseInt(parts[3], 10) || 1)), tee: S.me.tee && course0.tees.some(t => t.id === S.me.tee) ? S.me.tee : course0.tees[0].id, mode: 'center' };
+    const PTS = [['tee', 'Départ', '#2f6fd6', 'D'], ['front', 'Avant', '#7bd65a', 'A'], ['center', 'Centre', '#e8272b', '⛳'], ['back', 'Arrière', '#14532d', 'R']];
+    if (amap) { amap.remove(); amap = null; }
+    $app.innerHTML = topbar('🛠️ Drapeaux · ' + shortCourse(course0.name), '#/courses') + `<main class="adm">
+      <div class="chips" id="a-chips"></div>
+      <div class="adm-bar"><div class="seg" id="a-mode">${PTS.map(([k, l, col]) => `<button data-m="${k}"><i class="tdot" style="background:${col}"></i>${l}</button>`).join('')}</div></div>
+      <div id="amap"></div>
+      <div class="adm-info" id="a-info"></div>
+      <div class="row2"><button class="btn ghost" id="a-prev">‹ Trou préc.</button><button class="btn" id="a-next">Trou suiv. ›</button></div>
+      <div class="row2"><button class="btn ghost sm" id="a-fit">🎯 Recentrer</button><button class="btn ghost sm danger" id="a-clear">🗑️ Effacer ce trou</button></div>
+      <p class="hint">Choisis un point (Départ, Avant, Centre, Arrière) puis touche la carte, ou fais glisser un point déjà posé. Zoome au maximum pour être précis. Chaque modification est enregistrée et partagée tout de suite.</p></main>`;
+    updateSyncBadge();
+    const course = () => getCourse(courseId);
+    const gpsOf = () => (course().holes[st.h - 1].gps || {});
+    const savePt = (key, ll) => {
+      const copy = JSON.parse(JSON.stringify(course()));
+      const hh = copy.holes[st.h - 1]; hh.gps = hh.gps || {};
+      if (ll) hh.gps[key] = { lat: +ll.lat.toFixed(7), lng: +ll.lng.toFixed(7) }; else delete hh.gps[key];
+      if (key === 'center' && ll && !copy.center) copy.center = { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6) };
+      saveCourse(copy);
+    };
+    const drawChips = () => {
+      const el = document.getElementById('a-chips');
+      el.innerHTML = course().holes.map((h, i) => `<button data-h="${i + 1}" class="${i + 1 === st.h ? 'on' : ''} ${h.gps && h.gps.center ? 'done' : ''}">${i + 1}</button>`).join('');
+      el.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { st.h = +b.dataset.h; history.replaceState(null, '', '#/admin/' + encodeURIComponent(courseId) + '/' + st.h); refresh(true); });
+      const on = el.querySelector('.on'); if (on) el.scrollLeft = on.offsetLeft - el.clientWidth / 2 + 20;
+      document.querySelectorAll('#a-mode [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === st.mode));
+    };
+    let layer = null;
+    const drawInfo = () => {
+      const ch = course().holes[st.h - 1], gp = gpsOf();
+      const card = ch.dist ? ch.dist[st.tee] : null;
+      let html = `<div class="adm-h"><b>Trou ${st.h}</b> · Par ${ch.par} · HCP ${ch.si} <select id="a-tee">${course().tees.map(t => `<option value="${esc(t.id)}" ${t.id === st.tee ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>`;
+      if (gp.tee && gp.center) {
+        const d = C.distance(gp.tee, gp.center), diff = card ? d - card : null;
+        const ok = diff == null ? '' : Math.abs(diff) <= 10 ? '✅' : Math.abs(diff) <= 25 ? '🟠' : '⚠️';
+        html += `<div class="adm-row"><span>Départ → centre (ligne droite)</span><b>${d} m</b></div>`;
+        if (card) html += `<div class="adm-row"><span>Carte de score (${esc((course().tees.find(t => t.id === st.tee) || {}).name || '')})</span><b>${card} m ${ok} <small>${diff >= 0 ? '+' : ''}${diff} m</small></b></div>`;
+        if (diff != null && Math.abs(diff) > 25) html += '<p class="hint">Gros écart : départ mal placé, mauvais repère, ou trou en dogleg (la carte mesure le long du fairway).</p>';
+      } else html += `<p class="hint">${gp.center ? 'Place le départ pour comparer avec la carte de score.' : 'Pas encore de centre de green sur ce trou.'}</p>`;
+      if (gp.front && gp.back) html += `<div class="adm-row"><span>Profondeur du green</span><b>${C.distance(gp.front, gp.back)} m</b></div>`;
+      document.getElementById('a-info').innerHTML = html;
+      document.getElementById('a-tee').onchange = e => { st.tee = e.target.value; drawInfo(); };
+    };
+    const drawMarkers = () => {
+      if (!amap) return;
+      if (layer) layer.clearLayers(); else layer = L.layerGroup().addTo(amap);
+      const gp = gpsOf();
+      PTS.forEach(([k, l, col, letter]) => {
+        if (!gp[k]) return;
+        const icon = L.divIcon({ className: 'admpin', html: `<span style="background:${col}">${letter}</span><em>${l}</em>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+        const m = L.marker([gp[k].lat, gp[k].lng], { draggable: true, icon }).addTo(layer);
+        m.on('dragend', () => { savePt(k, m.getLatLng()); drawInfo(); drawLine(); });
+        m.on('drag', () => drawLine(k, m.getLatLng()));
+      });
+      drawLine();
+    };
+    let line = null;
+    const drawLine = (k, ll) => {
+      if (!amap) return;
+      const gp = { ...gpsOf() }; if (k && ll) gp[k] = ll;
+      if (line) { line.remove(); line = null; }
+      const pts = ['tee', 'front', 'center', 'back'].filter(x => gp[x]).map(x => [gp[x].lat, gp[x].lng]);
+      if (gp.tee && gp.center) line = L.polyline([[gp.tee.lat, gp.tee.lng], [gp.center.lat, gp.center.lng]], { color: '#ffd400', weight: 2, dashArray: '6 6' }).addTo(amap);
+    };
+    const fit = () => {
+      const gp = gpsOf(); const pts = ['tee', 'front', 'center', 'back'].filter(x => gp[x]).map(x => [gp[x].lat, gp[x].lng]);
+      if (pts.length >= 2) amap.fitBounds(pts, { padding: [40, 40], maxZoom: 19 });
+      else if (pts.length === 1) amap.setView(pts[0], 19);
+      else { const c = course().center || S.pos; if (c) amap.setView([c.lat, c.lng], 16); }
+    };
+    const refresh = refit => { drawChips(); drawInfo(); drawMarkers(); if (refit) fit(); };
+    loadLeaflet().then(() => {
+      const c = course().center || { lat: 46.6, lng: 2.4 };
+      amap = L.map('amap', { zoomControl: true }).setView([c.lat, c.lng], 16);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 22, maxNativeZoom: 19, attribution: 'Esri, Maxar' }).addTo(amap);
+      amap.on('click', e => { savePt(st.mode, e.latlng); const order = ['tee', 'front', 'center', 'back']; drawMarkers(); drawInfo(); drawChips(); });
+      refresh(true);
+    }).catch(() => { document.getElementById('amap').innerHTML = '<p class="err">Carte indisponible (connexion ?)</p>'; });
+    document.querySelectorAll('#a-mode [data-m]').forEach(b => b.onclick = () => { st.mode = b.dataset.m; drawChips(); });
+    const go = d => { const n = st.h + d; if (n < 1 || n > course().holes.length) return; st.h = n; history.replaceState(null, '', '#/admin/' + encodeURIComponent(courseId) + '/' + st.h); refresh(true); };
+    document.getElementById('a-prev').onclick = () => go(-1);
+    document.getElementById('a-next').onclick = () => go(1);
+    document.getElementById('a-fit').onclick = fit;
+    document.getElementById('a-clear').onclick = () => { if (!confirm('Effacer départ et green du trou ' + st.h + ' ?')) return; ['tee', 'front', 'center', 'back'].forEach(k => savePt(k, null)); refresh(false); };
+    drawChips(); drawInfo();
   }
 
   /* --- Suppression d'une partie --- */
@@ -1453,7 +1568,7 @@
   function viewCourses() {
     const list = Object.values(allCourses());
     $app.innerHTML = topbar('Parcours', '#/') + `<main>
-      ${list.map(c => { const placed = c.holes.filter(h => h.gps && h.gps.center).length; return `<a class="gcard" href="#/course/${encodeURIComponent(c.id)}"><div><b>${esc(c.name)}</b><small>${esc(c.city || '')} · ${c.holes.length} trous · par ${c.holes.reduce((s, h) => s + h.par, 0)}</small><small>Greens GPS : ${placed}/${c.holes.length}</small></div><div class="gscore">›</div></a>`; }).join('')}
+      ${list.map(c => { const placed = c.holes.filter(h => h.gps && h.gps.center).length; return `<a class="gcard" href="#/course/${encodeURIComponent(c.id)}"><div><b>${esc(c.name)}</b><small>${esc(c.city || '')} · ${c.holes.length} trous · par ${c.holes.reduce((s, h) => s + h.par, 0)}</small><small>Greens GPS : ${placed}/${c.holes.length}</small></div><div class="gscore">›</div></a>${isAdmin() ? `<a class="btn ghost full admbtn" href="#/admin/${encodeURIComponent(c.id)}">🛠️ Ajuster les drapeaux (admin)</a>` : ''}`; }).join('')}
       <button class="btn big full" id="c-new">＋ Nouveau parcours</button>
       <p class="hint">Les parcours (notes, difficultés, GPS des greens) sont partagés avec tous ceux qui utilisent ton serveur.</p></main>`;
     updateSyncBadge();
@@ -1600,7 +1715,7 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullMyGames().then(pullFollowGames).then(scheduleBackup);
+    pullMyGames().then(pullFollowGames).then(scheduleBackup).then(replayOpenGames);
     startPresence();
     pullCopains();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });
@@ -1610,7 +1725,7 @@
       // au réveil : on recharge la partie ouverte (scores saisis par les autres pendant la veille) et on relance le direct
       const m = location.hash.match(/^#\/game\/([^/]+)/);
       if (m && S.games[m[1]]) refreshGame(m[1]).then(ok => { if (ok) liveRender(); subscribe(m[1]); });
-      pullMyGames().then(pullFollowGames);
+      pullMyGames().then(pullFollowGames).then(replayOpenGames);
     });
   }
   route();
