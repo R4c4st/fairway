@@ -375,11 +375,6 @@
     else if (skin === 'snow') fx = R(18).map((r, i) => `<i class="fx-flake" style="left:${(i * 5.6 + r * 4) % 100}%;animation-delay:${-r * 7}s;animation-duration:${6 + r * 3}s"></i>`).join('');
     el.insertAdjacentHTML('afterbegin', `<div class="wx-fx" aria-hidden="true">${fx}</div>`);
   }
-  // Reflets : tous calés sur la même horloge, pour une vague parfaitement synchronisée
-  function syncShine() {
-    const t = (performance.now() % 4500) / 1000;
-    [['.tile.new', 0], ['.tile.trt', .25], ['.tile.live', .5], ['.sstrip', .8]].forEach(([q, o]) => document.querySelectorAll(q).forEach(e => e.style.setProperty('--sd', (o - t).toFixed(3) + 's')));
-  }
   let wxOpen = false, wxBusy = false;
   function loadWeather(force) {
     const el = document.getElementById('wx'); if (!el) return;
@@ -993,8 +988,7 @@
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
     refreshOnlineUI();
     loadWeather();
-    syncShine();
-    const sApply = d => { if (!d || !d.cur) return; const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); syncShine(); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); };
+    const sApply = d => { if (!d || !d.cur) return; const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); };
     const sCache = LS.get('fw_season', null);
     if (S.me.season && sCache) sApply(sCache);
     if (S.me.season && (!sCache || Date.now() - (sCache.at || 0) > 90e3 || sCache.nDone !== done.length)) refreshSeason().then(sApply).catch(() => { });
