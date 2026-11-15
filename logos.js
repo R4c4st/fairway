@@ -1,8 +1,6 @@
-/* Fairway — palettes de couleurs et logos au choix (générés en SVG selon la couleur) */
+/* Fly18 — palette (vert) et logos au choix, générés en SVG */
 window.FW_PALETTES = {
-  vert:   { name: 'Vert fairway', g: '#1b7a3d', gd: '#14532d', gl: '#e7f4ec', dg: '#2fa45a', dgd: '#0f2c1a', dgl: '#16301f', acc: '#7fe0a0' },
-  bleu:   { name: 'Bleu océan',   g: '#1d63c8', gd: '#123a72', gl: '#e7efff', dg: '#4b8ef0', dgd: '#0d2142', dgl: '#132a4d', acc: '#9cc3ff' },
-  noir:   { name: 'Noir & or',    g: '#a8841c', gd: '#151515', gl: '#f6efd9', dg: '#d4ad3d', dgd: '#0b0b0b', dgl: '#2a2410', acc: '#f0d27a' }
+  vert:   { name: 'Vert fairway', g: '#1b7a3d', gd: '#14532d', gl: '#e7f4ec', dg: '#2fa45a', dgd: '#0f2c1a', dgl: '#16301f', acc: '#7fe0a0' }
 };
 
 window.FW_LOGOS = {

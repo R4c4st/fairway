@@ -988,7 +988,10 @@
     if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
     refreshOnlineUI();
     loadWeather();
-    if (S.me.season) refreshSeason().then(d => { const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); }).catch(() => { });
+    const sApply = d => { if (!d || !d.cur) return; const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); };
+    const sCache = LS.get('fw_season', null);
+    if (S.me.season && sCache) sApply(sCache);
+    if (S.me.season && (!sCache || Date.now() - (sCache.at || 0) > 90e3 || sCache.nDone !== done.length)) refreshSeason().then(sApply).catch(() => { });
     const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Bienvenue sur le Fly Tour 🏆'); viewHome(); };
     const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
     bindHist($app);
@@ -2008,7 +2011,6 @@
   const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Pas passé les rouges', -3], ['Nice shot reçu d\'un pote (3 max / partie)', 2], ['Nice shot donné à un pote (3 max / partie)', 1], ['Participation (par 9 trous)', 5], ['Victoire', 5]];
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const monthKey = d => d.slice(0, 7);
-  const monthLabel = k => { const [y, m] = k.split('-'); return MOIS[+m - 1] + ' ' + y; };
   // points d'une partie terminée, découpée en blocs de 9 trous (aller / retour), par joueur inscrit
   function gameBlocks(g) {
     const out = {}; if (g.game.status !== 'done') return out;
@@ -2099,8 +2101,9 @@
         const { data: games } = await sb.from('games').select('*').eq('status', 'done').gte('play_date', year + '-01-01').lte('play_date', year + '-12-31').limit(500);
         if (games && games.length) {
           const ids = games.map(g => g.id);
-          const [{ data: players }, { data: scores }, { data: events }] = await Promise.all([
-            sb.from('players').select('*').in('game_id', ids), sb.from('scores').select('*').in('game_id', ids), sb.from('events').select('*').in('game_id', ids)]);
+          // requêtes par paquets de 80 parties (évite des URL trop longues)
+          const chunk = async t => { const out = []; for (let i = 0; i < ids.length; i += 80) { const { data } = await sb.from(t).select('*').in('game_id', ids.slice(i, i + 80)); if (data) out.push(...data); } return { data: out }; };
+          const [{ data: players }, { data: scores }, { data: events }] = await Promise.all([chunk('players'), chunk('scores'), chunk('events')]);
           list = games.map(game => { const g = { game, players: (players || []).filter(p => p.game_id === game.id), scores: {}, events: (events || []).filter(e => e.game_id === game.id) }; (scores || []).filter(r => r.game_id === game.id).forEach(r => { (g.scores[r.player_id] = g.scores[r.player_id] || {})[r.hole] = { strokes: r.strokes, putts: r.putts, pickup: r.pickup }; }); return g; });
         }
       } catch (e) { }
@@ -2117,7 +2120,7 @@
     if (remoteOn() && navigator.onLine) { try { const { data: pr } = await sb.from('profiles').select('device_id').eq('season', true); if (pr) allowed = new Set(pr.map(r => r.device_id).concat(S.me.season ? [S.me.deviceId] : [])); } catch (e) { } }
     const cups = {};
     for (let m = 1; m < +now.slice(5, 7); m++) { const st = standingsMonth(games, y + '-' + String(m).padStart(2, '0'), allowed); if (st.length && st[0].pts > 0) st.filter(r => r.pts === st[0].pts).forEach(r => (cups[r.dev] = (cups[r.dev] || 0) + 1)); }
-    const data = { at: Date.now(), cups, month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
+    const data = { at: Date.now(), nDone: Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').length, cups, month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
     LS.set('fw_season', data); return data;
   }
   function prevMonthKey(k) { let [y, m] = k.split('-').map(Number); m--; if (!m) { m = 12; y--; } return y + '-' + String(m).padStart(2, '0'); }
