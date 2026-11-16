@@ -776,6 +776,7 @@
     ['win5', '🏅', 'Leader', 'Gagner 5 parties', 'g'],
     ['nice5', '⭐', 'Showman', 'Recevoir 5 Nice shots', 's'],
     ['games10', '📅', 'Fidèle', 'Jouer 10 parties', 'b'],
+    ['rouge1', '😅', 'Bienvenue au 19e trou', 'Premier drive qui ne passe pas les rouges', 'b'],
     ['rouge5', '🍺', 'Habitué du 19e trou', '5 short drives', 'b']
   ];
   function myTrophies() {
@@ -812,7 +813,7 @@
       if (holes.length === 18 && all && (me.tee || g.game.tee) !== 'rouge' && rougesIn(g) === 0) got.norouge = 1;
     });
     if (wins >= 1) got.win1 = 1; if (wins >= 5) got.win5 = 1;
-    if (nice >= 5) got.nice5 = 1; if (done >= 10) got.games10 = 1; if (rouges >= 5) got.rouge5 = 1;
+    if (nice >= 5) got.nice5 = 1; if (done >= 10) got.games10 = 1; if (rouges >= 1) got.rouge1 = 1; if (rouges >= 5) got.rouge5 = 1;
     return got;
   }
   const medal = (t, on, big) => `<span class="medal ${on ? 'm-' + t[4] : 'm-off'}${big ? ' big' : ''}"><i>${on ? t[1] : '🔒'}</i></span>`;
