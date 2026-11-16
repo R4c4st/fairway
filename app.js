@@ -559,12 +559,12 @@
     const here = shortCourse(course.name);
     const potes = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId && isKnown(m.device_id) && m.course && here && m.course === here);
     const el = document.createElement('div'); el.className = 'modal';
-    const conf = Array.from({ length: 28 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .5}s;background:${['#22a052', '#ffd400', '#fff', '#e8272b'][i % 4]}"></i>`).join('');
+    const conf = Array.from({ length: 28 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .5}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 4]}"></i>`).join('');
     el.innerHTML = `<div class="sheet welcome-golf"><div class="conf">${conf}</div><img class="wlogo" src="${logoURL()}" alt=""><h2>Bienvenue au golf !</h2><div class="wg-name">${esc(course.name)}</div>
-      <p>Bonne partie ${esc(S.me.name)} ⛳<br><small>Et que le dernier paie sa tournée 🍺</small></p>
+      <p>Bonne partie ${esc(S.me.name)}<br><small>Et que le dernier paie sa tournée</small></p>
       <div id="wg-live"></div>
       ${potes.length ? `<p class="wg-potes">${potes.map(m => '<i class="led"></i>' + esc(m.name)).join(' · ')} ${potes.length > 1 ? 'sont' : 'est'} aussi sur le parcours</p>` : ''}
-      <a class="btn big full" href="#/new/${encodeURIComponent(course.id)}" id="wg-new">⛳ Nouvelle partie ici</a>
+      <a class="btn big full" href="#/new/${encodeURIComponent(course.id)}" id="wg-new">Nouvelle partie ici</a>
       <button class="btn ghost full" id="wg-x">Plus tard</button></div>`;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => el.remove();
@@ -690,7 +690,7 @@
     if (e.type === 'rouge') { emoji = '🍺'; title = name + " n'a pas passé les rouges !"; sub = 'Trou ' + e.hole + ' · une tournée de plus pour ' + name; }
     else { const s = shotOf(e.type); emoji = s[1]; title = (e.type === 'autre' && e.label ? e.label : s[2]) + ' de ' + name + ' !'; sub = (e.hole ? 'Trou ' + e.hole + ' · ' : '') + 'signalé par ' + (e.by_name || '?'); }
     const el = document.createElement('div'); el.className = 'pop' + (e.type === 'rouge' ? ' rouge' : '');
-    const conf = Array.from({ length: 36 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#e8272b', '#ffd400', '#22a052', '#2f6fd6', '#ff7ab6', '#fff'][i % 6]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
+    const conf = Array.from({ length: 36 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 6]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
     el.innerHTML = `<div class="conf">${e.type === 'rouge' ? '' : conf}</div><div class="popcard"><div class="popemoji">${emoji}</div><div class="poptitle">${esc(title)}</div><div class="popsub">${esc(sub)}</div><small>${esc(g.game.course.name)}</small></div>`;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => { el.remove(); nextPopup(); }, 300); };
@@ -792,7 +792,7 @@
   }
   function trophyPopup(t) {
     const el = document.createElement('div'); el.className = 'pop';
-    const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#ffd400', '#f7c531', '#fff', '#22a052'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
+    const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
     el.innerHTML = `<div class="conf">${conf}</div><div class="popcard">${medal(t, true, true)}<div class="popsub">Nouveau trophée</div><div class="poptitle">${esc(t[2])}</div><div class="popsub">${esc(t[3])}</div></div>`;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 300); };
@@ -2317,7 +2317,7 @@
     if (LS.get('fw_crown', '') === d.prevKey) return;
     LS.set('fw_crown', d.prevKey);
     const r = d.prev; const el = document.createElement('div'); el.className = 'pop';
-    const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#ffd400', '#f7c531', '#fff', '#22a052'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
+    const conf = Array.from({ length: 30 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 4]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
     el.innerHTML = `<div class="conf">${conf}</div><div class="popcard"><div class="popemoji poptr">${FW_IC('trophy')}</div><div class="popsub">Fly Tour · étape de ${MOIS[+d.prevKey.slice(5) - 1]}</div><div class="poptitle">${esc(r[0].name)} remporte la Fly Cup !</div><div class="popsub">${r[0].pts} pts${r[1] ? ' · 2e ' + esc(r[1].name) + ' (' + r[1].pts + ')' : ''}${r[2] ? ' · 3e ' + esc(r[2].name) + ' (' + r[2].pts + ')' : ''}</div></div>`;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => el.remove(), 300); };
