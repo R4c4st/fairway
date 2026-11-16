@@ -311,7 +311,7 @@
     const box = document.getElementById('online');
     if (box) {
       const others = Object.values(S.onlineMap).filter(m => m.device_id !== S.me.deviceId && isKnown(m.device_id)).sort((a, b) => (b.course ? 1 : 0) - (a.course ? 1 : 0) || (a.name || '').localeCompare(b.name || ''));
-      box.innerHTML = others.length ? `<h2>En ligne <span class="cnt">${others.length}</span></h2><div class="onl">${others.map(m => `<span class="onchip"><i class="led"></i>${esc(m.name || '?')}${m.course ? `<small>⛳ ${esc(m.course)}</small>` : m.watching ? `<small>👀 ${esc(m.watching)}</small>` : ''}</span>`).join('')}</div>` : '';
+      box.innerHTML = others.length ? `<div class="onl onl1">${others.map(m => `<span class="onchip"><i class="led"></i>${esc(m.name || '?')}${m.course ? `<small>⛳ ${esc(m.course)}</small>` : m.watching ? `<small>👀 ${esc(m.watching)}</small>` : ''}</span>`).join('')}</div>` : '';
     }
     document.querySelectorAll('[data-dev]').forEach(el => { const on = !!(S.onlineMap[el.dataset.dev] && el.dataset.dev !== S.me.deviceId && isKnown(el.dataset.dev)); el.classList.toggle('isonline', on); });
   }

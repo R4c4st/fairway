@@ -810,6 +810,11 @@ html,body{overflow-x:hidden}
 .phead{display:flex;align-items:center;justify-content:space-between;margin-top:4px}.phead h2{margin:0!important}
 .padd{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--bd);background:var(--card);color:var(--g);font:600 14px var(--font);cursor:pointer}.padd .li{width:16px;height:16px}
 html[data-theme=dark] .padd{color:#7FC4A0}
+/* En ligne : une seule ligne compacte */
+#online:empty{display:none}
+.onl1{flex-wrap:nowrap!important;overflow-x:auto;gap:6px!important;margin:-2px 0 0;padding:0 2px;scrollbar-width:none}.onl1::-webkit-scrollbar{display:none}
+.onl1 .onchip{flex:none;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;background:var(--card);border:1px solid var(--bd);font:600 13px var(--font);box-shadow:none;white-space:nowrap}
+.onl1 .onchip .led{width:7px;height:7px;margin:0}.onl1 .onchip small{font:500 12px var(--font);color:var(--mu);margin-left:2px}
 </style>
 </head>
 <body>
