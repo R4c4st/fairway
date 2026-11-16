@@ -2167,7 +2167,7 @@
   /* --- Bienvenue (1re installation) --- */
 
   /* ---------- Classement de la saison (points par mois) ---------- */
-  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Short drive', -3], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1], ['Participation (par 9 trous)', 5]];
+  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', 0], ['Double bogey', -1], ['Triple ou plus / croix', -2], ['Short drive', -2], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1], ['Participation (par 9 trous)', 5]];
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const monthKey = d => d.slice(0, 7);
   // points d'une partie terminée, découpée en blocs de 9 trous (aller / retour), par joueur inscrit
@@ -2194,18 +2194,18 @@
         const c = rows[h]; if (!c || (c.strokes == null && !c.pickup)) return;
         B[blockOf(h)].n++;
         if (team) return; // en équipe : pas de score individuel
-        if (c.pickup) return add(h, 'Croix', -4);
+        if (c.pickup) return add(h, 'Triple+ / croix', -2);
         const par = course.holes[h - 1].par, diff = c.strokes - par - (recv[h] || 0);
         if (c.strokes === 1) add(h, 'Trou en un', 500);
         else if (diff <= -3) add(h, 'Albatros' + nt, 250);
         else if (diff === -2) add(h, 'Eagle' + nt, 15);
         else if (diff === -1) add(h, 'Birdie' + nt, 5);
         else if (diff === 0) add(h, 'Par' + nt, 2);
-        else if (diff === 1) add(h, 'Bogey' + nt, -1);
-        else if (diff === 2) add(h, 'Double bogey' + nt, -2);
-        else add(h, 'Triple+' + nt, -3);
+        else if (diff === 1) add(h, 'Bogey' + nt, 0);
+        else if (diff === 2) add(h, 'Double bogey' + nt, -1);
+        else add(h, 'Triple+ / croix', -2);
       });
-      ev.filter(e => e.type === 'rouge' && e.player_id === p.id).forEach(e => add(e.hole || holes[0], 'Short drives', -3));
+      ev.filter(e => e.type === 'rouge' && e.player_id === p.id).forEach(e => add(e.hole || holes[0], 'Short drives', -2));
       // Nice shots « fair-play » : comptent seulement s'ils viennent d'un autre joueur, 1 par trou, 3 max par partie
       const norm = x => (x || '').trim().toLowerCase();
       const recvd = []; const seenH = new Set();
@@ -2302,7 +2302,7 @@
       const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '🏆 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
       const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}${tab === 'year' && d.cups && d.cups[r.dev] ? ` <span class="cup">🏆×${d.cups[r.dev]}</span>` : ''}<small>${tab === 'year' ? r.games + ' partie' + (r.games > 1 ? 's' : '') : r.kept + '/' + BEST_BLOCKS + ' × 9 trous'}</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
       const mine = rows.find(r => r.dev === S.me.deviceId);
-      const det = mine ? `<h2>Mes points</h2>${S.me.index !== '' && S.me.index != null ? `<p class="hint" style="margin:-4px 0 8px">Compté en net avec ton index (${esc(String(S.me.index))}) : tes coups reçus sont déduits trou par trou. Un bogey brut sur un trou où tu reçois 1 coup = un par net. Comme en compétition officielle (WHS) : index plafonné à 36 et 95 % des coups rendus. Seules comptent les parties jouées avec au moins un autre golfeur inscrit (carte attestée).</p>` : ''}<div class="sdet">${Object.entries(mine.det).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
+      const det = mine ? `<h2>Mes points</h2>${S.me.index !== '' && S.me.index != null ? `<p class="hint" style="margin:-4px 0 8px">Compté en net avec ton index (${esc(String(S.me.index))}) : tes coups reçus sont déduits trou par trou. Un bogey brut sur un trou où tu reçois 1 coup = un par net. Comme en compétition officielle (WHS) : index plafonné à 36 et 95 % des coups rendus. Seules comptent les parties jouées avec au moins un autre golfeur inscrit (carte attestée).</p>` : ''}<div class="sdet">${Object.entries(mine.det).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
       const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné, comme en compétition officielle (WHS) : index plafonné à 36 et 95 % des coups rendus. Sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Une partie ne compte que si au moins deux golfeurs inscrits y ont participé : l'un est le marqueur de l'autre. Seules les parties terminées comptent. Chaque mois est une étape : remise à zéro le 1er, et le premier remporte la <b>Fly Cup</b>. La saison cumule toutes les étapes de l'année.</p></details>`;
       const tf = tourFlight();
       const fsel = S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(f => `<button data-tf="${f.id}" class="${tf && f.id === tf.id ? 'on' : ''}"><i class="crest">${flCrest(f)}</i>${esc(f.name)}</button>`).join('')}</div>` : (tf ? `<p class="flname"><i class="crest">${flCrest(tf)}</i>${esc(tf.name)}</p>` : '');
