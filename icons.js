@@ -56,6 +56,7 @@
     chev: '<path d="M9 6l6 6-6 6"/>',
     qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2"/>',
     shield: '<path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z"/>',
+    flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.4-5.4 3.6-8.3.4 1.9 1.4 3 2.6 3.6C12 6.8 13.3 4.3 15.6 3c-.3 2.7.9 4.6 2 6.2 1 1.4 1.9 3 1.9 5.3 0 3.8-2.8 6.5-7.5 6.5z"/><path d="M12 21c-1.7 0-3-1.2-3-3 0-1.9 1.6-2.8 2.2-4.4.9.9 1.4 1.4 2.4 2 .8.6 1.4 1.4 1.4 2.5 0 1.7-1.3 2.9-3 2.9z"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>'
   };
   window.FW_LI = (n, w) => `<svg class="li" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.8}" stroke-linecap="round" stroke-linejoin="round">${P[n] || ''}</svg>`;

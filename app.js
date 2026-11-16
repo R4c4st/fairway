@@ -1131,6 +1131,37 @@
   const bindHist = root => root.querySelectorAll('[data-hx]').forEach(c => c.onclick = e => { if (e.target.closest('a')) return; c.classList.toggle('open'); });
   const histGames = () => Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').sort((a, b) => (b.game.play_date || '').localeCompare(a.game.play_date || ''));
 
+
+  /* ---------- Série : semaines consécutives avec au moins 9 trous joués, 1 joker par mois ---------- */
+  function weekKey(d) { const t = new Date(d + 'T12:00:00'); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.toISOString().slice(0, 10); }
+  function streakInfo() {
+    const wk = new Set(); let holesYear = 0; const yr = String(new Date().getFullYear());
+    Object.values(S.games).forEach(g => {
+      if (g.follow || g.game.status !== 'done' || !g.game.play_date) return;
+      const me = (g.players || []).find(p => p.device_id === S.me.deviceId); if (!me) return;
+      const n = Object.values((scoresOf(g)[me.id]) || {}).filter(x => x && x.strokes).length;
+      if (g.game.play_date.startsWith(yr)) holesYear += n;
+      if (n >= 9) wk.add(weekKey(g.game.play_date));
+    });
+    const add = (k, d) => { const t = new Date(k + 'T12:00:00'); t.setDate(t.getDate() + d); return t.toISOString().slice(0, 10); };
+    const run = (from, to) => { // série terminée à la semaine "to", en remontant
+      let n = 0, k = to; const jok = new Set();
+      while (k >= from) { if (wk.has(k)) n++; else { const m = k.slice(0, 7); if (!jok.has(m)) jok.add(m); else break; } k = add(k, -7); }
+      return n;
+    };
+    if (!wk.size) return { cur: 0, best: 0, holesYear, thisWeek: false };
+    const first = [...wk].sort()[0], now = weekKey(new Date().toISOString().slice(0, 10)), thisWeek = wk.has(now);
+    const cur = thisWeek ? run(first, now) : run(first, add(now, -7));
+    let best = cur; [...wk].forEach(k => { const r = run(first, k); if (r > best) best = r; });
+    return { cur, best, holesYear, thisWeek };
+  }
+  function streakTile() {
+    const s = streakInfo();
+    const big = s.cur ? s.cur + (s.cur > 1 ? ' semaines' : ' semaine') : 'Lance ta série';
+    const sub = s.cur ? 'd\'affilée · ' + (s.thisWeek ? 'semaine validée' : 'à prolonger cette semaine') : '9 trous dans la semaine suffisent';
+    const rec = s.cur > 1 && s.cur >= s.best;
+    return `<a class="streak${rec ? ' rec' : ''}" href="#/stats"><span class="sic">${FW_LI('flame')}</span><span class="stx"><b>${big}</b><small>${sub}</small></span><span class="srec best"><b>${s.best}</b><small>${rec ? 'record !' : 'record'}</small></span><span class="srec"><b>${s.holesYear}</b><small>trous ${new Date().getFullYear()}</small></span></a>`;
+  }
   function viewHome() {
     if (!S.me.name) return; // pas de profil : l'écran de bienvenue reste affiché
     const rounds = myRoundStats();
@@ -1152,13 +1183,14 @@
       <div id="online"></div>
       ${installBar()}
       ${open.map(card).join('')}
-      <div class="acts"><a class="act pri" href="#/new">${FW_LI('plus', 2)}<b>Nouvelle partie</b></a><a class="act" href="#/live">${FW_LI('live')}<b>Live</b><span id="livecount" class="ldot"></span></a>${S.me.season ? `<a class="act tour" href="#/classement">${FW_LI('trophy')}<b>Fly Tour</b><span id="srank" class="rk"></span></a>` : `<button class="act" data-act="invite">${FW_LI('users')}<b>Inviter</b></button>`}</div>
+      <div class="acts"><a class="act pri" href="#/new">${FW_LI('plus', 2)}<b>Jouer</b></a><a class="act" href="#/live">${FW_LI('live')}<b>Live</b><span id="livecount" class="ldot"></span></a>${S.me.season ? `<a class="act tour" href="#/classement">${FW_LI('trophy')}<b>Fly Tour</b><span id="srank" class="rk"></span></a>` : `<button class="act" data-act="invite">${FW_LI('users')}<b>Inviter</b></button>`}</div>
       ${potes.length ? '<div class="sec"><h2>Mon Flight joue</h2></div>' + potes.map(potesCard).join('') : ''}
       ${done.length ? `<div class="sec"><h2>Dernières parties</h2><a href="#/stats">Tout voir</a></div><div class="hlist">${done.slice(0, 3).map(histCard).join('')}</div>` : ''}
       ${!S.flights.length ? `<a class="sinvite" href="#/flights"><span class="sic">${FW_LI('shield')}</span><div><b>Rejoins ou crée ton Flight</b><small>Ton cercle de golf : vos parties, le Live et le Fly Tour, entre vous.</small></div>${FW_LI('chev')}</a>` : ''}
       ${S.me.season && S.me.seasonAuto && !S.me.tourIntro ? `<div class="sinvite" id="tintro"><span class="sic gold">${FW_LI('trophy')}</span><div><b>Le Fly Tour est activé</b><small>Des points à chaque partie, une Fly Cup chaque mois.</small></div><button class="btn sm" id="ti-go">Découvrir</button><button class="sx" id="ti-no" aria-label="Fermer">✕</button></div>` : ''}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked ? `<div class="sinvite" id="sinvite"><span class="sic gold">${FW_LI('trophy')}</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="mods"><a class="mod" href="#/stats">${FW_LI('stats')}<span>Stats</span></a><a class="mod" href="#/courses">${FW_LI('flag')}<span>Parcours</span></a><button class="mod" data-act="share">${FW_LI('share')}<span>Partager</span></button></div>
+      ${open.length ? '' : streakTile()}
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
     </main>`;
     updateSyncBadge();
