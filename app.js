@@ -827,6 +827,7 @@
     const fresh = TROPHIES.filter(t => got[t[0]] && !seen.has(t[0]));
     if (!fresh.length) return;
     LS.set('fw_troph', TROPHIES.filter(t => got[t[0]]).map(t => t[0]));
+    const tier = { g: 0, s: 1, b: 2 }; fresh.sort((x, y) => tier[x[4]] - tier[y[4]] || TROPHIES.indexOf(y) - TROPHIES.indexOf(x)); // les plus beaux d'abord
     fresh.slice(0, 3).forEach((t, i) => setTimeout(() => trophyPopup(t), i * 4200));
     if (fresh.length > 3) toast('+' + (fresh.length - 3) + ' autres trophées dans tes Stats 🏆');
   }
@@ -1201,6 +1202,7 @@
   }
   function viewHome() {
     cleanEmpty();
+    clearTimeout(S.trT); S.trT = setTimeout(() => { if (location.hash === '' || location.hash === '#/') checkTrophies(); }, 1800);
     if (!S.me.name) return; // pas de profil : l'écran de bienvenue reste affiché
     const rounds = myRoundStats();
     const potes = Object.values(S.games).filter(g => g.follow).sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
