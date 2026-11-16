@@ -1500,6 +1500,7 @@
     else if (!gps.center) html = `<div class="gpsmsg">Green pas encore placé pour ce trou.</div><div class="row2"><button class="btn ghost sm" data-gp="center">📍 Je suis au centre du green</button><button class="btn ghost sm" data-goto="carte">🗺️ Placer sur la carte</button></div>`;
     else {
       const dc = C.distance(P, gps.center), df = C.distance(P, gps.front), db = C.distance(P, gps.back);
+      if (dc > 1500) { el.innerHTML = `<div class="gpsmsg">Tu es à ${dc >= 10000 ? Math.round(dc / 1000) : (dc / 1000).toFixed(1).replace('.', ',')} km du green : les distances s'afficheront sur le parcours.</div>`; return; }
       const club = C.suggestClub(dc, S.me.bag);
       const m = S.measure;
       html = `<div class="gband"><div class="gs"><small>Avant</small><b>${df != null ? df : '–'}</b></div><div class="gc"><b>${dc}</b><small>m</small></div><div class="gs"><small>Arrière</small><b>${db != null ? db : '–'}</b></div>
