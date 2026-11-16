@@ -896,20 +896,23 @@
     const pay = gamePayers(g);
     const names = pay.last.map(x => x.name);
     const title = names.length ? names.join(' et ') + (names.length > 1 ? ' invitent' : ' invite') + ' au 19e trou' : 'Égalité parfaite';
-    const sub = names.length ? (pay.teamName ? (g.game.format === 'combo' ? pay.teamName + ' perd le duel' : pay.teamName + ' termine dernière') : (names.length > 1 ? 'Derniers ex aequo : le 19e trou est partagé' : 'Dernier de la partie')) : 'Aucun verre en jeu cette fois.';
-    const extra = pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — short drive au ${r.holes.join(', ')} → ${r.holes.length} verre${r.holes.length > 1 ? 's' : ''}</li>`).join('');
+    const sub = names.length ? (pay.teamName ? (g.game.format === 'combo' ? 'Merci pour cette belle partie' : 'Merci pour cette belle partie') : (names.length > 1 ? 'Le 19e trou est partagé' : 'Merci pour cette belle partie')) : 'Aucun verre en jeu cette fois.';
+    const extra = pay.rouges.map(r => `<li><i class="bdot"></i><b>${esc(r.name)}</b> — short drive au ${r.holes.join(', ')} → ${r.holes.length} verre${r.holes.length > 1 ? 's' : ''}</li>`).join('');
     const bubbles = Array.from({ length: 14 }, () => `<circle cx="${45 + Math.random() * 70}" cy="200" r="${2 + Math.random() * 3}" style="animation-delay:${1 + Math.random() * 2.5}s;animation-duration:${1.6 + Math.random() * 1.6}s"/>`).join('');
     const el = document.createElement('div'); el.className = 'beer';
     el.innerHTML = `<div class="beerin">
+      <div class="beerhalo" aria-hidden="true"></div>
       <svg viewBox="0 0 160 230" class="glass" aria-hidden="true">
-        <defs><clipPath id="gclip"><path d="M30 30 L130 30 L120 215 Q80 222 40 215 Z"/></clipPath>
-        <linearGradient id="beerg" x1="0" x2="1"><stop offset="0" stop-color="#f2a900"/><stop offset=".5" stop-color="#ffc83d"/><stop offset="1" stop-color="#e59400"/></linearGradient></defs>
-        <g clip-path="url(#gclip)"><rect class="liquid" x="20" y="30" width="120" height="200" fill="url(#beerg)"/><g class="bubbles" fill="#fff8">${bubbles}</g>
-        <g class="foam"><circle cx="40" cy="40" r="16"/><circle cx="62" cy="34" r="18"/><circle cx="86" cy="36" r="17"/><circle cx="108" cy="33" r="18"/><circle cx="126" cy="40" r="15"/><rect x="25" y="38" width="110" height="16"/></g></g>
-        <path d="M30 30 L130 30 L120 215 Q80 222 40 215 Z" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round" opacity=".9"/>
-        <path d="M130 70 Q160 72 158 115 Q156 155 124 158" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".9"/>
-        <path d="M42 50 L50 200" stroke="#fff" stroke-width="4" opacity=".35" stroke-linecap="round"/>
+        <defs><clipPath id="gclip"><path d="M34 28 L126 28 C128 72 121 100 113 130 C107 156 107 188 111 212 L49 212 C53 188 53 156 47 130 C39 100 32 72 34 28 Z"/></clipPath>
+        <linearGradient id="beerg" x1="0" x2="1"><stop offset="0" stop-color="#B8862E"/><stop offset=".35" stop-color="#E9C46A"/><stop offset=".55" stop-color="#F3D88E"/><stop offset="1" stop-color="#A97A26"/></linearGradient>
+        <linearGradient id="glassg" x1="0" x2="1"><stop offset="0" stop-color="#E6C886"/><stop offset=".5" stop-color="#FFF1C8"/><stop offset="1" stop-color="#C9A55A"/></linearGradient></defs>
+        <g clip-path="url(#gclip)"><rect class="liquid" x="20" y="30" width="120" height="200" fill="url(#beerg)"/><g class="bubbles" fill="#FFF6DD">${bubbles}</g>
+        <g class="foam"><path d="M28 50 L28 30 Q40 22 52 29 Q64 20 78 28 Q92 19 104 28 Q118 21 132 30 L132 50 Z"/></g></g>
+        <path d="M34 28 L126 28 C128 72 121 100 113 130 C107 156 107 188 111 212 L49 212 C53 188 53 156 47 130 C39 100 32 72 34 28 Z" fill="none" stroke="url(#glassg)" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M44 214 L116 214" stroke="url(#glassg)" stroke-width="5" stroke-linecap="round"/>
+        <path d="M44 46 C44 82 50 104 56 128" stroke="#fff" stroke-width="2.5" opacity=".35" stroke-linecap="round" fill="none"/>
       </svg>
+      <div class="beerkick">Fin de partie</div>
       <div class="beertitle">${esc(title)}</div><div class="beersub">${esc(sub)}</div>
       ${extra ? `<ul class="beerlist">${extra}</ul>` : ''}
       <button class="btn big" id="cheers">Cheers</button></div>`;
@@ -1629,7 +1632,7 @@
     html += `${g.game.format === 'combo' ? '<!--' : ''}<table class="board ${C.noHcp(g.game) ? 'nohcp' : ''}"><thead><tr><th>#</th><th>${isTeamGame(g) ? 'Équipe' : 'Joueur'}</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${isTeamGame(g) ? teamDot((teamPlayers(g).find(t => t.id === r.playerId) || {}).color) : led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>${isTeamGame(g) ? esc((teamPlayers(g).find(t => t.id === r.playerId) || { members: [] }).members.map(m => m.name).join(' · ')) + ' · ' : ''}${C.noHcp(g.game) ? '' : 'HCP ' + r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>${g.game.format === 'combo' ? '-->' : ''}
       ${(() => {
         const pay = gamePayers(g);
-        const lines = pay.last.map(x => `<li>${FW_IC('tournee')} <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — short drive (trou ${r.holes.join(', ')})</li>`));
+        const lines = pay.last.map(x => `<li>${FW_IC('tournee')} <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'invite au 19e trou' : 'au 19e trou pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — short drive (trou ${r.holes.join(', ')})</li>`));
         return `<h2><button class="beerbtn" id="b-beer" aria-label="Revoir l'animation">${FW_IC('tournee')}</button> 19e trou</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Aucun verre en jeu pour l\'instant.</p>'}`;
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'react').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'react').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
