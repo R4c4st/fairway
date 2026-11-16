@@ -790,6 +790,22 @@ html[data-theme=dark] .streak .sic{color:#7FC4A0}
 .streak .srec{display:flex;flex-direction:column;align-items:center;padding-left:12px;border-left:1px solid var(--bd);min-width:44px}.streak .srec b{font:700 17px var(--font);color:var(--g)}html[data-theme=dark] .streak .srec b{color:#7FC4A0}.streak .srec small{font:500 10.5px var(--font);color:var(--mu);white-space:nowrap}
 .streak.rec .sic{background:var(--goldL);color:var(--gold)!important}.streak.rec .srec.best b{color:var(--gold)!important}
 html.pro .hint.tip{display:none!important}
+/* Nouvelle partie compacte */
+main.newg{gap:10px;padding-bottom:96px}main.newg>label,main.newg>.row2,main.newg>.netsw{margin:0!important}main.newg .row2{gap:10px}
+main.newg label{gap:4px;font-size:13px}
+main.newg select,main.newg .prow input{height:46px;min-height:46px;font-size:16px;padding-top:0;padding-bottom:0}
+main.newg .row2.fx{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr)}main.newg .row2.fx>label:only-child{grid-column:1/-1}
+main.newg h2{margin:8px 0 0}
+main.newg .prow{margin-bottom:6px}
+.netsw{display:flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:10px 14px;cursor:pointer}
+.netsw span{display:flex;flex-direction:column;gap:1px}.netsw b{font:600 15px var(--font);color:var(--tx)}.netsw small{font:500 12.5px var(--font);color:var(--mu)}
+.netsw input{position:absolute;opacity:0;pointer-events:none}
+.netsw i{flex:none;width:46px;height:28px;border-radius:14px;background:var(--bd);position:relative;transition:background .2s}
+.netsw i:after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0003;transition:transform .2s}
+.netsw input:checked+i{background:var(--g)}.netsw input:checked+i:after{transform:translateX(18px)}
+main.newg .addp{align-self:flex-start;height:44px;padding:0 16px}
+main.newg .gobar{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 70%,transparent)}
+main.newg .gobar .btn{width:100%;max-width:560px;display:block;margin:0 auto}
 </style>
 </head>
 <body>
