@@ -1169,7 +1169,35 @@
     const rec = s.cur > 1 && s.cur >= s.best;
     return `<a class="streak${rec ? ' rec' : ''}" href="#/stats"><span class="sic">${FW_LI('flame')}</span><span class="stx"><b>${big}</b><small>${sub}</small></span><span class="srec best"><b>${s.best}</b><small>${rec ? 'record !' : 'record'}</small></span><span class="srec"><b>${s.holesYear}</b><small>trous ${new Date().getFullYear()}</small></span></a>`;
   }
+
+  /* ---------- Une seule partie en cours à la fois ---------- */
+  const hasScores = g => Object.values(scoresOf(g)).some(r => Object.values(r || {}).some(x => x && x.strokes));
+  const iMade = g => { const f = (g.players || []).slice().sort((x, y) => (x.created_at || '').localeCompare(y.created_at || ''))[0]; return !!f && f.device_id === S.me.deviceId; };
+  // parties ouvertes du jour (une partie planifiée plus tard ne bloque rien), la plus récente d'abord
+  const myOpenNow = () => Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done' && (g.game.play_date || today()) <= today()).sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
+  function dropGame(g) {
+    delete S.games[g.game.id]; S.hidden.add(g.game.id); LS.set('fw_hidden', [...S.hidden]);
+    S.queue = S.queue.filter(o => !(o.row && (o.row.game_id === g.game.id || o.row.id === g.game.id))); saveQueue();
+    push({ t: 'delete', table: 'games', match: { id: g.game.id } });
+  }
+  // parties vides créées par moi : supprimées après 12 h, ou dès qu'une partie plus récente existe
+  function cleanEmpty() {
+    let n = 0;
+    myOpenNow().forEach((g, i) => { if (!iMade(g) || hasScores(g)) return; if (i > 0 || Date.now() - new Date(g.game.created_at || 0).getTime() > 12 * 36e5) { dropGame(g); n++; } });
+    if (n) { saveGames(); subscribeMe(); }
+  }
+  async function newGate(cur) {
+    history.replaceState(null, '', '#/'); viewHome();
+    const sc = hasScores(cur);
+    const r = await fwChoice('Partie en cours · ' + cur.game.course.name, sc
+      ? [['go', 'Reprendre la partie'], ['end', 'Terminer et en créer une nouvelle', 'ghost'], [null, 'Annuler', 'ghost']]
+      : [['go', 'Reprendre la partie'], ['del', 'Supprimer et en créer une nouvelle', 'ghost'], [null, 'Annuler', 'ghost']]);
+    if (r === 'go') location.hash = '#/game/' + cur.game.id;
+    else if (r === 'end') { updateGame(cur.game.id, { status: 'done' }); S.newOk = true; location.hash = '#/new'; }
+    else if (r === 'del') { if (iMade(cur)) dropGame(cur); else { delete S.games[cur.game.id]; S.hidden.add(cur.game.id); LS.set('fw_hidden', [...S.hidden]); } saveGames(); subscribeMe(); S.newOk = true; location.hash = '#/new'; }
+  }
   function viewHome() {
+    cleanEmpty();
     if (!S.me.name) return; // pas de profil : l'écran de bienvenue reste affiché
     const rounds = myRoundStats();
     const potes = Object.values(S.games).filter(g => g.follow).sort((a, b) => (b.game.created_at || '').localeCompare(a.game.created_at || ''));
@@ -1224,6 +1252,8 @@
 
   /* --- Nouvelle partie --- */
   function viewNew(preCourse) {
+    if (!S.newOk) { const cur = myOpenNow()[0]; if (cur) { newGate(cur); return; } }
+    S.newOk = false;
     const courses = Object.values(allCourses());
     const st = { courseId: (preCourse && courses.some(x => x.id === preCourse)) ? preCourse : courses[0] && courses[0].id, tee: S.me.tee || 'jaune', mode: '18', format: 'brut', date: today(), time: '', players: [{ name: S.me.name || 'Moi', idx: S.me.index == null ? '' : S.me.index, me: true }], teamSize: 2, assign: [], tnames: [], hcp: false, xcap: S.me.xcap != null ? S.me.xcap : 4 };
     const teamFmt = () => st.format === 'scramble' || st.format === 'combo';
