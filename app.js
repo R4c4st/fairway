@@ -326,6 +326,11 @@
   // téléphones de tous les membres de mes Flights (moi exclu)
   function knownDevs() { const k = new Set(); S.flights.forEach(f => (f.members || []).forEach(m => { if (m.device_id !== S.me.deviceId) k.add(m.device_id); })); return k; }
   const isKnown = dev => !!dev && (dev === S.me.deviceId || knownDevs().has(dev));
+  // Fly Tour activé côté serveur (par l'admin) : on l'adopte une fois, avec un message de présentation
+  async function pullSeasonFlag() {
+    if (S.me.seasonAsked || !remoteOn() || !navigator.onLine) return;
+    try { const { data } = await sb.from('profiles').select('season').eq('device_id', S.me.deviceId).limit(1); if (data && data[0] && data[0].season) { S.me.season = true; S.me.seasonAsked = 1; S.me.seasonAuto = 1; saveMe(); } } catch (e) { }
+  }
   async function pullFlights() {
     if (!remoteOn() || !navigator.onLine) return S.flights;
     try {
@@ -1125,6 +1130,7 @@
       ${potes.length ? '<div class="sec"><h2>Mon Flight joue</h2></div>' + potes.map(potesCard).join('') : ''}
       ${done.length ? `<div class="sec"><h2>Dernières parties</h2><a href="#/stats">Tout voir</a></div><div class="hlist">${done.slice(0, 3).map(histCard).join('')}</div>` : ''}
       ${!S.flights.length ? `<a class="sinvite" href="#/flights"><span class="sic">${FW_LI('shield')}</span><div><b>Rejoins ou crée ton Flight</b><small>Ton cercle de golf : vos parties, le Live et le Fly Tour, entre vous.</small></div>${FW_LI('chev')}</a>` : ''}
+      ${S.me.season && S.me.seasonAuto && !S.me.tourIntro ? `<div class="sinvite" id="tintro"><span class="sic gold">${FW_LI('trophy')}</span><div><b>Le Fly Tour est activé</b><small>Des points à chaque partie, une Fly Cup chaque mois.</small></div><button class="btn sm" id="ti-go">Découvrir</button><button class="sx" id="ti-no" aria-label="Fermer">✕</button></div>` : ''}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked ? `<div class="sinvite" id="sinvite"><span class="sic gold">${FW_LI('trophy')}</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="mods"><a class="mod" href="#/stats">${FW_LI('stats')}<span>Stats</span></a><a class="mod" href="#/courses">${FW_LI('flag')}<span>Parcours</span></a><button class="mod" data-act="share">${FW_LI('share')}<span>Partager</span></button></div>
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
@@ -1138,6 +1144,8 @@
     if (S.me.season && sCache) sApply(sCache);
     if (S.me.season && (!sCache || Date.now() - (sCache.at || 0) > 90e3 || sCache.nDone !== done.length || (sCache.flightId || null) !== ((tourFlight() || {}).id || null))) refreshSeason().then(sApply).catch(() => { });
     const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Bienvenue sur le Fly Tour 🏆'); viewHome(); };
+    const tGo = $app.querySelector('#ti-go'); if (tGo) tGo.onclick = () => { S.me.tourIntro = 1; saveMe(); location.hash = '#/classement'; };
+    const tNo = $app.querySelector('#ti-no'); if (tNo) tNo.onclick = () => { S.me.tourIntro = 1; saveMe(); viewHome(); };
     const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
     bindHist($app);
     $app.querySelectorAll('[data-act=invite]').forEach(b => b.onclick = () => S.flights.length ? flightInviteSheet(S.flights[0]) : (location.hash = '#/flights'));
@@ -2507,7 +2515,7 @@
     pullCourses().then(() => { if (/^#\/(courses|course|game)/.test(location.hash)) route(); });
     flush();
     if (S.me.name) syncProfile();
-    pullFlights().then(() => { if (S.me.name && (location.hash === '' || location.hash === '#/')) viewHome(); }).then(pullMyGames).then(pullFollowGames).then(scheduleBackup).then(replayOpenGames).then(() => setTimeout(checkTrophies, 2500));
+    pullSeasonFlag().then(pullFlights).then(() => { if (S.me.name && (location.hash === '' || location.hash === '#/')) viewHome(); }).then(pullMyGames).then(pullFollowGames).then(scheduleBackup).then(replayOpenGames).then(() => setTimeout(checkTrophies, 2500));
     startPresence();
     pullCopains();
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') trackPresence(); });
