@@ -788,7 +788,7 @@
       if (g.game.status === 'done') done++;
       if (wonGame(g) === true) wins++;
       rouges += rougesIn(g);
-      nice += (g.events || []).filter(e => e.player_id === me.id && e.type !== 'rouge' && e.type !== 'react' && e.type !== 'tournee').length;
+      nice += new Set((g.events || []).filter(e => e.player_id === me.id && e.type !== 'rouge' && e.type !== 'react' && e.type !== 'tournee').map(e => e.hole)).size; // un seul Nice shot par trou, même salué par plusieurs
       if (isTeamGame(g)) return;
       const sc = scoresOf(g)[me.id] || {};
       const holes = C.holesFor(g.game.mode, course.holes.length);
