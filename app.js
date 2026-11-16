@@ -1287,10 +1287,9 @@
         <div class="row2 fx"><label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => k !== (st.hcp ? 'brut' : 'net')).map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${k === 'brut' || k === 'net' ? 'Stroke play' : v}</option>`).join('')}</select></label>
         ${st.format === 'stableford' || st.format === 'match' ? '' : `<label>Croix<select id="n-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(st.xcap) ? 'selected' : ''}>par + ${n}</option>`).join('')}</select></label>`}</div>
         <label class="netsw"><span><b>Jouer en net</b><small>${st.hcp ? 'Coups reçus selon l\'index' : 'En brut, sans coups reçus'}</small></span><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><i></i></label>
-        <h2>Joueurs</h2>
+        <div class="phead"><h2>Joueurs</h2><button class="padd" id="n-add">${FW_LI('plus', 2)}Ajouter</button></div>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
         ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => [t, ms.filter(m => !st.players.some(p => p.key === m.key)), fl]).filter(([, ms]) => ms.length).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint tip">Sélectionne un golfeur pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
-        <button class="btn ghost addp" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint tip">Les autres golfeurs peuvent aussi rejoindre la partie avec son code, une fois créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
         ${teamsHtml}
