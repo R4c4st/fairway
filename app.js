@@ -1619,6 +1619,8 @@
         <div class="gclub">${club && dc < 300 ? `<b>${esc(club.club)}</b><small>${club.dist} m carry</small>` : ''}</div>
         ${m ? `<button class="gmeas on" data-ms="stop"><b>${C.distance(m, P)} m</b><small>OK</small></button>` : `<button class="gmeas" data-ms="start" title="Mesurer mon coup (±${P.acc} m)">📏<small>Coup</small></button>`}</div>`;
     }
+    // admin : poser le départ en un geste quand il manque (sur place, au départ du trou)
+    if (P && isAdmin() && !gps.tee && (!gps.center || C.distance(P, gps.center) < 700)) html += `<button class="btn ghost sm full" data-gp="tee" style="margin-top:8px">📍 Je suis au départ de ce trou</button>`;
     if (P && !gps.center) {
       const m = S.measure;
       html += `<div class="measure">${m ? `Coup mesuré : <b>${C.distance(m, P)} m</b> <button class="btn sm" data-ms="stop">OK</button>` : '<button class="btn ghost sm" data-ms="start">📏 Mesurer mon coup</button>'}<small class="acc">précision ±${P.acc} m</small></div>`;
