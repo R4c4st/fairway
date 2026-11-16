@@ -58,7 +58,7 @@
   S.me.color = 'vert'; // palette unique
   const logoURL = () => 'icon.svg'; // identité unique (icône v2)
   // aides affichées aux débutants seulement : disparaissent après 3 parties créées
-  function nCreated() { const n = LS.get('fw_ncreated', null); if (n != null) return n; const k = Object.values(S.games || {}).filter(g => !g.follow).length; LS.set('fw_ncreated', k); return k; }
+  function nCreated() { return Math.max(LS.get('fw_ncreated', 0) || 0, Object.values(S.games || {}).filter(g => !g.follow).length); }
   function applyTips() { document.documentElement.classList.toggle('pro', nCreated() >= 3); }
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
@@ -1251,12 +1251,12 @@
         <label>Parcours<select id="n-course">${courses.map(x => `<option value="${esc(x.id)}" ${x.id === st.courseId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
         <div class="row2"><label>Repère<select id="n-tee">${c.tees.map(t => `<option value="${esc(t.id)}" ${t.id === st.tee ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <label>Trous<select id="n-mode" ${st.format === 'combo' ? 'disabled' : ''}>${Object.entries(MODES).filter(([k]) => c.holes.length >= 18 || k !== 'back').map(([k, v]) => `<option value="${k}" ${k === st.mode ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
-        <label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => st.hcp || k !== 'net').map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${!st.hcp && k === 'brut' ? 'Stroke play' : v}</option>`).join('')}</select></label>
+        <label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => k !== (st.hcp ? 'brut' : 'net')).map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${k === 'brut' || k === 'net' ? 'Stroke play' : v}</option>`).join('')}</select></label>
         <label class="switch"><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><span>Jouer en net<small>${st.hcp ? 'Chacun reçoit ses coups selon son index' : 'Tout le monde joue en brut, sans coups reçus'}</small></span></label>
         ${st.format === 'stableford' || st.format === 'match' ? '' : `<label>Croix (balle ramassée)<select id="n-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(st.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>`}
         <h2>Joueurs</h2>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
-        ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint tip">Touche un golfeur pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
+        ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint tip">Sélectionne un golfeur pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
         <p class="hint tip">Les autres golfeurs peuvent aussi rejoindre la partie avec son code, une fois créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
@@ -1267,7 +1267,7 @@
       const bind = (id, k) => { $app.querySelector(id).onchange = e => { st[k] = e.target.value; if (k === 'courseId') st.picked = true; draw(); }; };
       bind('#n-course', 'courseId'); bind('#n-tee', 'tee'); bind('#n-mode', 'mode'); bind('#n-format', 'format');
       const xs = $app.querySelector('#n-xcap'); if (xs) xs.onchange = e => { st.xcap = Number(e.target.value); };
-      $app.querySelector('#n-hcp').onchange = e => { st.hcp = e.target.checked; if (!st.hcp && st.format === 'net') st.format = 'brut'; draw(); };
+      $app.querySelector('#n-hcp').onchange = e => { st.hcp = e.target.checked; if (!st.hcp && st.format === 'net') st.format = 'brut'; if (st.hcp && st.format === 'brut') st.format = 'net'; draw(); };
       $app.querySelectorAll('#n-players input').forEach(inp => inp.oninput = e => { st.players[+e.target.dataset.i][e.target.dataset.f] = e.target.value; });
       $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { st.players.splice(+b.dataset.del, 1); draw(); });
       $app.querySelectorAll('[data-pk]').forEach(b => b.onclick = () => {
