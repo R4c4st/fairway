@@ -314,11 +314,17 @@
   /* ---------- Flights : groupes privés, on n'y entre que sur invitation ---------- */
   S.flights = LS.get('fw_flights', []);
   // blason propre à chaque Flight : palette tirée au hasard à la création + initiales
-  const FL_PAL = [['#1b7a3d', '#ffd23f'], ['#1d4f91', '#e8edf5'], ['#7a1f2b', '#f2c46d'], ['#2b2b2b', '#d4ad3d'], ['#0f6e6e', '#ffffff'], ['#5b3a8c', '#ffd23f'], ['#b5541c', '#fff1d6'], ['#3c5a14', '#e8e2b0']];
+  const FL_PAL = [['#2B5240', '#1A3427'], ['#2A4466', '#18293F'], ['#6E2A33', '#43181E'], ['#3A3D3B', '#222423'], ['#245C5A', '#143634'], ['#4E3B66', '#2E223E'], ['#8A5230', '#55311B'], ['#4F5A2E', '#30381B']];
+  let flN = 0;
   function flCrest(f) {
-    const [c, d] = FL_PAL[(f && f.color != null ? f.color : 0) % FL_PAL.length];
-    const t = flInit(f ? f.name : '?').toUpperCase().slice(0, 3);
-    return `<svg viewBox="0 0 48 48"><path d="M24 4l16 6v12c0 11-7 18-16 22C15 40 8 33 8 22V10z" fill="${c}" stroke="${d}" stroke-width="2.5" stroke-linejoin="round"/><text x="24" y="${t.length > 2 ? 29 : 30}" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="900" font-size="${t.length > 2 ? 12.5 : 15}" fill="${d}">${esc(t)}</text></svg>`;
+    const [a, b] = FL_PAL[(f && f.color != null ? f.color : 0) % FL_PAL.length], id = 'fc' + (flN++);
+    const n = (f && f.name || '?').trim(), w = n.split(/\s+/).filter(x => !/^(du|de|des|la|le|les|l'|d'|the|of|team|club)$/i.test(x)), ww = w.length ? w : [n];
+    const t = (ww.length > 1 ? ww[0][0] + ww[1][0] : ww[0].slice(0, 2)).toUpperCase();
+    return '<svg viewBox="0 0 48 48"><defs><radialGradient id="' + id + 'f" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="' + a + '"/><stop offset="1" stop-color="' + b + '"/></radialGradient>'
+      + '<linearGradient id="' + id + 'g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3E2B0"/><stop offset=".45" stop-color="#C9A55A"/><stop offset=".7" stop-color="#8E6B2C"/><stop offset="1" stop-color="#D9BC78"/></linearGradient></defs>'
+      + '<path d="M24 3.5 40.5 9v12.5c0 11.2-7.1 18.6-16.5 23C14.6 40.1 7.5 32.7 7.5 21.5V9z" fill="url(#' + id + 'f)" stroke="url(#' + id + 'g)" stroke-width="2.2" stroke-linejoin="round"/>'
+      + '<path d="M24 7.6 37 12v9.6c0 9-5.5 15-13 18.7-7.5-3.7-13-9.7-13-18.7V12z" fill="none" stroke="url(#' + id + 'g)" stroke-opacity=".45" stroke-width=".7"/>'
+      + '<text x="24" y="27.6" text-anchor="middle" font-family="\'Noto Serif\',Georgia,\'Times New Roman\',serif" font-weight="700" font-size="14.5" letter-spacing=".6" fill="#EAD49C">' + esc(t) + '</text></svg>';
   }
   const flightLink = f => APP_URL + '#/f/' + f.code;
   const flightCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 31)]).join('');
@@ -672,7 +678,16 @@
     push({ t: 'delete', table: 'events', match: { id } });
   }
   const popQueue = []; let popBusy = false;
-  function eventPopup(g, e) { if (popQueue.some(x => x.e.id === e.id)) return; popQueue.push({ g, e }); if (!popBusy) nextPopup(); }
+  const joinNames = a => a.filter((v, i) => a.indexOf(v) === i).join(', ').replace(/, ([^,]*)$/, ' et $1');
+  function eventPopup(g, e) {
+    if (popQueue.some(x => x.e.id === e.id)) return;
+    // la popup de ce coup est déjà à l'écran : on ajoute simplement le nom
+    const c = S.curPop;
+    if (c && c.el.parentNode && e.type !== 'rouge' && !S.seen.has(e.id) && c.k === g.game.id + ':' + e.player_id + ':' + e.hole) {
+      markSeen(e.id); c.names.push(e.by_name || '?'); c.el.querySelector('.popsub').textContent = c.pre + 'applaudi par ' + joinNames(c.names); return;
+    }
+    popQueue.push({ g, e }); if (!popBusy) nextPopup();
+  }
   // rejoue les moments forts pas encore vus sur ce téléphone (ouverture d'une partie, même terminée, ou de l'appli)
   const replayOpenGames = () => Object.values(S.games).filter(g => !g.follow && g.game.status !== 'done' && myPlayer(g)).forEach(replayUnseen);
   function replayUnseen(g) {
@@ -687,16 +702,27 @@
   function nextPopup() {
     const it = popQueue.shift(); if (!it) { popBusy = false; return; }
     popBusy = true;
-    const { g, e } = it;
+    const { g } = it; let e = it.e;
     if (S.seen.has(e.id) && !it.force) { nextPopup(); return; }
     markSeen(e.id);
+    // même coup salué par plusieurs golfeurs : une seule animation, les suivants en simple message
+    S.curPop = null;
+    if (e.type !== 'rouge') {
+      const k = g.game.id + ':' + e.player_id + ':' + e.hole, now = Date.now();
+      S.shotShown = S.shotShown || {};
+      const same = popQueue.filter(x => x.e.type !== 'rouge' && x.g.game.id === g.game.id && x.e.player_id === e.player_id && x.e.hole === e.hole);
+      if (S.shotShown[k] && now - S.shotShown[k] < 180000) { const pp = g.players.find(x => x.id === e.player_id); toast((e.by_name || 'Un golfeur') + ' applaudit aussi le coup de ' + (pp ? pp.name : '?')); nextPopup(); return; }
+      S.shotShown[k] = now;
+      if (same.length) { same.forEach(x => { markSeen(x.e.id); popQueue.splice(popQueue.indexOf(x), 1); }); } S.curPop = { k, pre: e.hole ? 'Trou ' + e.hole + ' · ' : '', names: [e.by_name || '?', ...same.map(x => x.e.by_name || '?')] }; e = { ...e, by_name: joinNames(S.curPop.names) };
+    }
     const p = g.players.find(x => x.id === e.player_id); const name = p ? p.name : '?';
     let emoji, title, sub;
     if (e.type === 'rouge') { emoji = FW_IC('tournee'); title = 'Short drive · ' + name; sub = 'Trou ' + e.hole + ' · un verre au 19e trou'; }
-    else { const s = shotOf(e.type); emoji = s[1]; title = (e.type === 'autre' && e.label ? e.label : s[2]) + ' · ' + name; sub = (e.hole ? 'Trou ' + e.hole + ' · ' : '') + 'signalé par ' + (e.by_name || '?'); }
+    else { const s = shotOf(e.type); emoji = s[1]; title = (e.type === 'autre' && e.label ? e.label : s[2]) + ' · ' + name; sub = (e.hole ? 'Trou ' + e.hole + ' · ' : '') + 'applaudi par ' + (e.by_name || '?'); }
     const el = document.createElement('div'); el.className = 'pop' + (e.type === 'rouge' ? ' rouge' : '');
     const conf = Array.from({ length: 36 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 6]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
     el.innerHTML = `<div class="conf">${e.type === 'rouge' ? '' : conf}</div><div class="popcard"><div class="popemoji">${emoji}</div><div class="poptitle">${esc(title)}</div><div class="popsub">${esc(sub)}</div><small>${esc(g.game.course.name)}</small></div>`;
+    if (e.type !== 'rouge' && S.curPop) S.curPop.el = el;
     document.body.appendChild(el); vibrate([40, 60, 40]);
     const close = () => { if (!el.parentNode) return; el.classList.add('out'); setTimeout(() => { el.remove(); nextPopup(); }, 300); };
     el.onclick = close; setTimeout(close, 4500);
