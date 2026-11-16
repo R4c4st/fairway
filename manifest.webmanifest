@@ -30,8 +30,8 @@
   ],
   "shortcuts": [
     {
-      "name": "Nouvelle partie",
-      "short_name": "Nouvelle partie",
+      "name": "Jouer",
+      "short_name": "Jouer",
       "url": "./#/new",
       "icons": [
         {
@@ -42,7 +42,7 @@
     },
     {
       "name": "Live",
-      "short_name": "📺 Live",
+      "short_name": "Live",
       "url": "./#/live",
       "icons": [
         {
