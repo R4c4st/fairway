@@ -2264,7 +2264,7 @@
   /* --- Bienvenue (1re installation) --- */
 
   /* ---------- Classement de la saison (points par mois) ---------- */
-  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', 0], ['Double bogey', -1], ['Triple ou plus / croix', -2], ['Short drive', -2], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1], ['Participation (par 9 trous)', 5]];
+  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', 0], ['Double bogey', -1], ['Triple ou plus / croix', -2], ['Short drive', -2], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1]];
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const monthKey = d => d.slice(0, 7);
   // points d'une partie terminée, découpée en blocs de 9 trous (aller / retour), par joueur inscrit
@@ -2311,7 +2311,6 @@
       const given = []; const seenG = new Set();
       ev.filter(e => !['rouge', 'react', 'tournee'].includes(e.type) && (e.by_dev ? e.by_dev === p.device_id : norm(e.by_name) === norm(p.name)) && e.player_id && e.player_id !== p.id).forEach(e => { const k = e.player_id + ':' + e.hole; if (!seenG.has(k)) { seenG.add(k); given.push(e); } });
       given.slice(0, 3).forEach(e => add(e.hole || holes[0], 'Nice shots donnés', 1));
-      Object.values(B).forEach(b => { if (b.n >= b.holes.length && b.holes.length) { b.pts += 5; b.det['Participation'] = (b.det['Participation'] || 0) + 5; } });
       out[p.device_id] = { name: p.name, blocks: Object.values(B).filter(b => b.n >= b.holes.length && b.holes.length) };
     });
     return out;

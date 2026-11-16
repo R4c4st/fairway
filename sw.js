@@ -1,5 +1,5 @@
 /* Fly18 — service worker : appli dispo hors ligne sur le parcours */
-const VERSION = 'fairway-v120';
+const VERSION = 'fairway-v121';
 const SHELL = ['./', 'index.html', 'app.js', 'core.js', 'courses.js', 'logos.js', 'icons.js', 'config.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'turf.webp'];
 const LIBS = /cdn\.jsdelivr\.net|unpkg\.com/;
 const TILES = /arcgisonline\.com/;
