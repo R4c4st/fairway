@@ -2373,7 +2373,11 @@
     allowed = new Set([...allowed].filter(d => fm.has(d)));
     const cups = {};
     for (let m = 1; m < +now.slice(5, 7); m++) { const st = standingsMonth(games, y + '-' + String(m).padStart(2, '0'), allowed); if (st.length && st[0].pts > 0) st.filter(r => r.pts === st[0].pts).forEach(r => (cups[r.dev] = (cups[r.dev] || 0) + 1)); }
-    const data = { at: Date.now(), flightId: tf ? tf.id : null, nDone: Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').length, cups, month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
+    // palmarès : chaque mois terminé de la saison, du plus récent au plus ancien
+    const months = [];
+    for (let m = +now.slice(5, 7) - 1; m >= 1; m--) { const k = y + '-' + String(m).padStart(2, '0'); const st = standingsFor(games, k, allowed); if (st.length && st[0].pts > 0) months.push({ key: k, rows: st }); }
+    if (!pm.startsWith(y) && prevGames.length) { const st = standingsFor(prevGames, pm, allowed); if (st.length && st[0].pts > 0) months.push({ key: pm, rows: st }); }
+    const data = { at: Date.now(), months, flightId: tf ? tf.id : null, nDone: Object.values(S.games).filter(g => !g.follow && g.game.status === 'done').length, cups, month: monthKey(now), cur: standingsFor(games, monthKey(now), allowed), prevKey: pm, prev: standingsFor(prevGames, pm, allowed), year: y, yearRows: standingsFor(games, y, allowed) };
     LS.set('fw_season', data); return data;
   }
   function tourFlight() { return S.flights.find(f => f.id === S.me.tourFlight) || S.flights[0] || null; }
@@ -2389,20 +2393,26 @@
     return `<a class="sstrip" href="#/classement"><span class="rk">${i + 1}<sup>${i ? 'e' : 'er'}</sup></span><div><b>${lbl}</b><small>${sub} · ${left > 0 ? left + ' jour' + (left > 1 ? 's' : '') + ' restant' + (left > 1 ? 's' : '') : 'dernier jour !'}</small></div><div class="pts"><b>${me.pts}</b><small>pts</small></div></a>`;
   }
   function viewSeason(tab) {
-    tab = tab || S.seasonTab || 'cur'; S.seasonTab = tab;
+    tab = tab || S.seasonTab || 'cur'; if (tab === 'prev') tab = 'cur'; S.seasonTab = tab;
     const data = LS.get('fw_season', null);
     const draw = d => {
-      const rows = !d ? [] : tab === 'cur' ? d.cur : tab === 'prev' ? d.prev : d.yearRows;
+      const past = tab.startsWith('m:') && d && (d.months || []).find(x => x.key === tab.slice(2));
+      if (tab.startsWith('m:') && !past) tab = 'cur';
+      const rows = !d ? [] : past ? past.rows : tab === 'cur' ? d.cur : d.yearRows;
       const curM = monthKey(today());
-      const tabs = [['cur', MOIS[+curM.slice(5) - 1]], ['prev', MOIS[+prevMonthKey(curM).slice(5) - 1]], ['year', 'Saison ' + curM.slice(0, 4)]];
+      const mLbl = k => MOIS[+k.slice(5) - 1] + ' ' + k.slice(0, 4);
+      const tabs = [['cur', MOIS[+curM.slice(5) - 1]], ['year', 'Saison ' + curM.slice(0, 4)]];
       const podium = rows.length ? `<div class="podium">${[1, 0, 2].map(k => rows[k] ? `<div><span>${k === 0 ? '🏆 ' : ''}${esc(rows[k].name)}</span><i class="p${k + 1}">${k + 1}<small>${rows[k].pts} pts</small></i></div>` : '<div></div>').join('')}</div>` : '<p class="muted" style="text-align:center">Pas encore de partie terminée sur cette période.</p>';
       const list = rows.length ? `<div class="slist">${rows.map((r, k) => `<p class="${r.dev === S.me.deviceId ? 'me' : ''}"><span>${k + 1}</span>${esc(r.name)}${tab === 'year' && d.cups && d.cups[r.dev] ? ` <span class="cup">🏆×${d.cups[r.dev]}</span>` : ''}<small>${tab === 'year' ? r.games + ' partie' + (r.games > 1 ? 's' : '') : r.kept + '/' + BEST_BLOCKS + ' × 9 trous'}</small><b>${r.pts} pts</b></p>`).join('')}</div>` : '';
+      const palm = !past && d && (d.months || []).length ? `<h2 class="palmh">Palmarès</h2><div class="palm">${d.months.map(x => `<button data-pm="${x.key}"><span class="pcup">${FW_IC('trophy')}</span><span class="ptx"><b>${mLbl(x.key).charAt(0).toUpperCase() + mLbl(x.key).slice(1)}</b><small>${x.rows.filter(r => r.pts === x.rows[0].pts).map(r => esc(r.name)).join(' & ')} · ${x.rows[0].pts} pts</small></span><span class="hchev">›</span></button>`).join('')}</div>` : '';
       const mine = rows.find(r => r.dev === S.me.deviceId);
       const det = mine ? `<h2>Mes points</h2>${S.me.index !== '' && S.me.index != null ? `<p class="hint" style="margin:-4px 0 8px">Compté en net avec ton index (${esc(String(S.me.index))}) : tes coups reçus sont déduits trou par trou. Un bogey brut sur un trou où tu reçois 1 coup = un par net. Comme en compétition officielle (WHS) : index plafonné à 36 et 95 % des coups rendus. Seules comptent les parties jouées avec au moins un autre golfeur inscrit (carte attestée).</p>` : ''}<div class="sdet">${Object.entries(mine.det).filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div>` : '';
       const rules = `<details class="srules"><summary>Le barème</summary><div class="sdet">${SEASON_RULES.map(([k, v]) => `<span class="${v < 0 ? 'neg' : ''}">${esc(k)} ${v > 0 ? '+' : ''}${v}</span>`).join('')}</div><p class="hint">Chaque 18 trous compte comme deux « 9 trous » (aller et retour). Seuls tes <b>4 meilleurs 9 trous du mois</b> sont retenus : jouer souvent n'est pas obligatoire pour gagner. Scores comptés en net si l'index est renseigné, comme en compétition officielle (WHS) : index plafonné à 36 et 95 % des coups rendus. Sinon en brut. Un Nice shot ne compte que s'il est donné par un autre joueur. Une partie ne compte que si au moins deux golfeurs inscrits y ont participé : l'un est le marqueur de l'autre. Seules les parties terminées comptent. Chaque mois est une étape : remise à zéro le 1er, et le premier remporte la <b>Fly Cup</b>. La saison cumule toutes les étapes de l'année.</p></details>`;
       const tf = tourFlight();
       const fsel = S.flights.length > 1 ? `<div class="seg flseg">${S.flights.map(f => `<button data-tf="${f.id}" class="${tf && f.id === tf.id ? 'on' : ''}"><i class="crest">${flCrest(f)}</i>${esc(f.name)}</button>`).join('')}</div>` : (tf ? `<p class="flname"><i class="crest">${flCrest(tf)}</i>${esc(tf.name)}</p>` : '');
-      $app.querySelector('main').innerHTML = fsel + `<div class="seg statseg">${tabs.map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`).join('')}</div>${podium}${list}${det}${rules}`;
+      const head = past ? `<button class="pmback" data-st="cur">‹ Retour</button><h2 class="pmtitle">Fly Cup · ${mLbl(past.key).charAt(0).toUpperCase() + mLbl(past.key).slice(1)}</h2>` : `<div class="seg statseg">${tabs.map(([k, l]) => `<button data-st="${k}" class="${tab === k ? 'on' : ''}">${l.charAt(0).toUpperCase() + l.slice(1)}</button>`).join('')}</div>`;
+      $app.querySelector('main').innerHTML = (past ? '' : fsel) + head + podium + list + (past ? '' : palm + det + rules);
+      $app.querySelectorAll('[data-pm]').forEach(b => b.onclick = () => { viewSeason('m:' + b.dataset.pm); window.scrollTo(0, 0); });
       $app.querySelectorAll('[data-st]').forEach(b => b.onclick = () => viewSeason(b.dataset.st));
       $app.querySelectorAll('[data-tf]').forEach(b => b.onclick = () => { S.me.tourFlight = b.dataset.tf; saveMe(); LS.set('fw_season', null); $app.querySelector('main').innerHTML = '<p class="muted">Calcul du classement…</p>'; refreshSeason().then(d => { if (location.hash === '#/classement') draw(d); }); });
     };
