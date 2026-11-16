@@ -57,6 +57,9 @@
   if (window.FW_LOGOS && !window.FW_LOGOS[S.me.logo]) S.me.logo = 'fly18';
   S.me.color = 'vert'; // palette unique
   const logoURL = () => 'icon.svg'; // identité unique (icône v2)
+  // aides affichées aux débutants seulement : disparaissent après 3 parties créées
+  function nCreated() { const n = LS.get('fw_ncreated', null); if (n != null) return n; const k = Object.values(S.games || {}).filter(g => !g.follow).length; LS.set('fw_ncreated', k); return k; }
+  function applyTips() { document.documentElement.classList.toggle('pro', nCreated() >= 3); }
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
@@ -366,7 +369,7 @@
       ${list || '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Tu n\'es dans aucun Flight.</p><small>Un Flight, c\'est ton cercle de golf : vos parties, vos scores en direct et le Fly Tour, entre vous seulement.</small></div>'}
       <button class="btn big full" id="fl-new">＋ Créer un Flight</button>
       <button class="btn ghost full" id="fl-join">Rejoindre avec un code</button>
-      <p class="hint">Tu ne vois que les golfeurs de tes Flights. On n'entre dans un Flight qu'avec son code à 6 caractères, donné par un membre.</p></main>`;
+      <p class="hint tip">Tu ne vois que les golfeurs de tes Flights. On n'entre dans un Flight qu'avec son code à 6 caractères, donné par un membre.</p></main>`;
     updateSyncBadge();
     $app.querySelector('#fl-new').onclick = async () => {
       const n = await fwPrompt('Nom du Flight :'); if (!n || !n.trim()) return;
@@ -1071,6 +1074,7 @@
     return `<header class="top">${back ? `<a class="back" href="${back}" aria-label="Retour">‹</a>` : '<img class="logo" src="' + logoURL() + '" alt="">'}<h1>${title === 'Fairway' ? WORDMARK : esc(title)}</h1>${extra === 'me' ? `<a class="mechip" href="#/profile"><span class="mc-t"><b>${esc(S.me.name || 'Profil')}</b><small>Index ${S.me.index !== '' && S.me.index != null ? esc(S.me.index) : '—'}</small></span><i id="sync" class="sync dot" data-dot="1"></i></a>` : '<span id="sync" class="sync"></span>' + (extra || '')}</header>`;
   }
   function route() {
+    applyTips();
     const h = location.hash.replace(/^#\/?/, '');
     const [r, a, b] = h.split('/');
     if (r !== 'game') { stopGPS(); unsubscribe(); }
@@ -1248,13 +1252,13 @@
         <div class="row2"><label>Repère<select id="n-tee">${c.tees.map(t => `<option value="${esc(t.id)}" ${t.id === st.tee ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
         <label>Trous<select id="n-mode" ${st.format === 'combo' ? 'disabled' : ''}>${Object.entries(MODES).filter(([k]) => c.holes.length >= 18 || k !== 'back').map(([k, v]) => `<option value="${k}" ${k === st.mode ? 'selected' : ''}>${v}</option>`).join('')}</select></label></div>
         <label>Formule<select id="n-format">${Object.entries(FORMATS).filter(([k]) => st.hcp || k !== 'net').map(([k, v]) => `<option value="${k}" ${k === st.format ? 'selected' : ''}>${!st.hcp && k === 'brut' ? 'Stroke play' : v}</option>`).join('')}</select></label>
-        <label class="switch"><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><span>Prendre en compte les index<small>${st.hcp ? 'Coups reçus selon l\'index de chacun (net, Stableford net, handicap d\'équipe)' : 'Décoché : tout le monde joue en brut, à égalité'}</small></span></label>
+        <label class="switch"><input type="checkbox" id="n-hcp" ${st.hcp ? 'checked' : ''}><span>Jouer en net<small>${st.hcp ? 'Chacun reçoit ses coups selon son index' : 'Tout le monde joue en brut, sans coups reçus'}</small></span></label>
         ${st.format === 'stableford' || st.format === 'match' ? '' : `<label>Croix (balle ramassée)<select id="n-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(st.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>`}
         <h2>Joueurs</h2>
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
-        ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint">Touche un copain pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
+        ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint tip">Touche un golfeur pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
-        <p class="hint">Les autres golfeurs peuvent aussi rejoindre la partie avec son code, une fois créée.</p>
+        <p class="hint tip">Les autres golfeurs peuvent aussi rejoindre la partie avec son code, une fois créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
         ${teamsHtml}
         <button class="btn big" id="n-go">Créer la partie</button>
@@ -1293,6 +1297,7 @@
           if (st.format === 'combo' && teams.length !== 2) return fwAlert('Le combo se joue à 2 équipes.');
         }
         const id = createGame({ ...st, players, teams });
+        LS.set('fw_ncreated', nCreated() + 1); applyTips();
         location.hash = '#/game/' + id;
       };
     };
@@ -1800,7 +1805,7 @@
           ${fin && pay && pay.last.length ? `<div class="lc-ev">${FW_IC('tournee')} ${esc(pay.last.map(x => x.name).join(' et '))} invite au 19e trou</div>` : (evTxt ? `<div class="lc-ev">${evTxt}</div>` : '')}</button>`;
       };
       const enCours = list.filter(g => g.game.status !== 'done'), finies = list.filter(g => g.game.status === 'done');
-      el.innerHTML = (enCours.length ? '<h2>● En cours</h2><p class="hint">Mises à jour en direct. Touche une partie pour la suivre.</p>' + enCours.map(card).join('') : '<p class="muted">Aucune partie en cours en ce moment.</p>')
+      el.innerHTML = (enCours.length ? '<h2>● En cours</h2><p class="hint tip">Mises à jour en direct. Touche une partie pour la suivre.</p>' + enCours.map(card).join('') : '<p class="muted">Aucune partie en cours en ce moment.</p>')
         + (finies.length ? '<h2>🏁 Terminées aujourd\'hui</h2>' + finies.map(card).join('') : '');
       el.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
         const g = list.find(x => x.game.id === b.dataset.g);
@@ -1827,7 +1832,7 @@
     const draw = () => {
       const list = copainList().filter(m => !(m.device_id && inGame.has(m.device_id)) && !g.players.some(p => !p.device_id && p.name.toLowerCase() === m.name.toLowerCase()));
       el.innerHTML = `<div class="sheet"><h2>＋ Ajouter un joueur</h2>
-        ${list.length ? `<div class="pick">${list.map(m => chipHtml(m, false, 'data-ak')).join('')}</div><p class="hint">Point vert = connecté. Hors ligne ? Tu peux saisir ses scores pour lui.</p>` : '<p class="muted">Tous les copains inscrits sont déjà dans la partie.</p>'}
+        ${list.length ? `<div class="pick">${list.map(m => chipHtml(m, false, 'data-ak')).join('')}</div><p class="hint tip">Point vert = connecté. Hors ligne ? Tu peux saisir ses scores pour lui.</p>` : '<p class="muted">Tous les copains inscrits sont déjà dans la partie.</p>'}
         <h2>Ou un invité</h2>
         <div class="form"><div class="row2"><label>Prénom<input id="ap-n"></label>${C.noHcp(g.game) ? '' : '<label>Index<input id="ap-i" inputmode="decimal"></label>'}</div></div>
         <button class="btn big full" id="ap-go">Ajouter l'invité</button>
@@ -1863,7 +1868,7 @@
       <div class="adm-info" id="a-info"></div>
       <div class="row2"><button class="btn ghost" id="a-prev">‹ Trou préc.</button><button class="btn" id="a-next">Trou suiv. ›</button></div>
       <div class="row2"><button class="btn ghost sm" id="a-fit">🎯 Recentrer</button><button class="btn ghost sm danger" id="a-clear">🗑️ Effacer ce trou</button></div>
-      <p class="hint">Choisis un point (Départ, Avant, Centre, Arrière) puis touche la carte, ou fais glisser un point déjà posé. Zoome au maximum pour être précis. Chaque modification est enregistrée et partagée tout de suite.</p></main>`;
+      <p class="hint tip">Choisis un point (Départ, Avant, Centre, Arrière) puis touche la carte, ou fais glisser un point déjà posé. Zoome au maximum pour être précis. Chaque modification est enregistrée et partagée tout de suite.</p></main>`;
     updateSyncBadge();
     const course = () => getCourse(courseId);
     const gpsOf = () => (course().holes[st.h - 1].gps || {});
@@ -2500,7 +2505,7 @@
       <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>Suivre mon Flight<small>Pop-ups et 19e trou des parties de ton Flight, même sans être invité</small></span></label>
       <label>Apparence</label>
       <div class="seg" id="p-theme">${[['auto', '📱 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([k, v]) => `<button data-th="${k}" class="${S.me.theme === k ? 'on' : ''}">${v}</button>`).join('')}</div>
-      <p class="hint">🌙 Sombre : vrai noir, économise la batterie sur les écrans OLED. ☀️ Clair : plus lisible en plein soleil.</p>
+      <p class="hint tip">🌙 Sombre : vrai noir, économise la batterie sur les écrans OLED. ☀️ Clair : plus lisible en plein soleil.</p>
       <label>Croix en stroke play (par défaut)<select id="p-xcap">${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${n === Number(S.me.xcap) ? 'selected' : ''}>par + ${n}${n === 2 ? ' (double bogey)' : n === 3 ? ' (triple bogey)' : ''}</option>`).join('')}</select></label>
       <label>Repère habituel<select id="p-tee">${tees.map(t => `<option ${t === S.me.tee ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <h2>Mes distances (carry, m)</h2>
