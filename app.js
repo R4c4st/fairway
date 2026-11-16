@@ -2358,7 +2358,7 @@
   window.addEventListener('appinstalled', () => { installEvt = null; toast('Fly18 est installée 🎉'); const b = document.getElementById('installbar'); if (b) b.remove(); });
   function installBar() {
     if (isStandalone()) return '';
-    if (installEvt) return `<button class="installbar" id="installbar">${FW_IC('install')}<span><b>Installer Fly18</b><small>Une icône sur ton écran, comme une vraie appli</small></span><i>›</i></button>`;
+    if (installEvt) return `<button class="installbar" id="installbar">${FW_IC('install')}<span><b>Installer Fly18</b><small>Installe-la sur ton téléphone</small></span><i>›</i></button>`;
     if (isIOS()) return `<div class="installbar ios"><span><b>Installer Fly18 sur iPhone</b><small>Safari → bouton Partager ⬆️ → « Sur l'écran d'accueil »</small></span></div>`;
     return '';
   }
