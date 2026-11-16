@@ -1,4 +1,4 @@
-/* Fly18 (ex-Fairway) — golf entre potes : scores, calculs, GPS, parcours, parties partagées */
+/* Fly18 (ex-Fairway) — golf, live scoring : scores, calculs, GPS, parcours, parties partagées */
 (function () {
   'use strict';
   const C = window.GolfCore;
@@ -16,8 +16,8 @@
   const FORMATS = { stableford: 'Stableford', net: 'Stroke play net', brut: 'Stroke play brut', match: 'Match play', scramble: 'Scramble', combo: 'Scramble 9 + Match play 9' };
   const MODES = { '18': '18 trous', front: 'Aller (1-9)', back: 'Retour (10-18)' };
   // [id, emoji, libellé, groupe]
-  const SHOTS = [['birdie', '🐦', 'Birdie', 's'], ['eagle', '🦅', 'Eagle', 's'], ['hio', '💥', 'Trou en 1', 's'], ['par', '💪', 'Par arraché', 's'],
-    ['drive', '🚀', 'Gros drive', 'c'], ['approche', '🎯', 'Belle approche', 'c'], ['chip', '🪄', 'Chip-in', 'c'], ['putt', '⛳', 'Putt de fou', 'c'], ['bunker', '🏖️', 'Sortie de bunker', 'c'], ['sauvetage', '🦸', 'Sauvetage', 'c'],
+  const SHOTS = [['birdie', '🐦', 'Birdie', 's'], ['eagle', '🦅', 'Eagle', 's'], ['hio', '💥', 'Trou en 1', 's'], ['par', '💪', 'Par save', 's'],
+    ['drive', '🚀', 'Big drive', 'c'], ['approche', '🎯', 'Great approach', 'c'], ['chip', '🪄', 'Chip-in', 'c'], ['putt', '⛳', 'Great putt', 'c'], ['bunker', '🏖️', 'Sand save', 'c'], ['sauvetage', '🦸', 'Recovery', 'c'],
     ['autre', '👏', 'Autre…', 'a']];
   const shotOf = t => SHOTS.find(s => s[0] === t) || ['autre', '👏', 'Nice shot'];
 
@@ -342,7 +342,7 @@
   async function joinFlightByCode(code) {
     const { data, error } = await sb.from('flights').select('*').eq('code', code.trim().toUpperCase()).limit(1);
     if (error) throw new Error('Serveur injoignable, réessaie.');
-    if (!data || !data.length) throw new Error('Ce lien d\'invitation n\'est plus valable. Demande un nouveau lien à ton pote.');
+    if (!data || !data.length) throw new Error('Ce lien d\'invitation n\'est plus valable. Demande un nouveau code à un membre du Flight.');
     const f = data[0];
     const { error: e2 } = await sb.from('flight_members').upsert({ flight_id: f.id, device_id: S.me.deviceId, name: S.me.name });
     if (e2) throw new Error('Impossible de rejoindre le Flight, réessaie.');
@@ -352,7 +352,7 @@
   function viewFlights() {
     const list = S.flights.map(f => `<a class="flcard" href="#/flight/${f.id}"><span class="flav2">${flCrest(f)}</span><div><b>${esc(f.name)}</b><small>${(f.members || []).length} membre${(f.members || []).length > 1 ? 's' : ''}</small></div>${f.admin_device === S.me.deviceId ? '<span class="fltag">ADMIN</span>' : ''}<span class="hchev">›</span></a>`).join('');
     $app.innerHTML = topbar('Mes Flights', '#/profile') + `<main class="form">
-      ${list || '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Tu n\'es dans aucun Flight.</p><small>Un Flight, c\'est ta bande de golf : vous voyez vos parties, vos scores en direct et le Fly Tour entre vous seulement.</small></div>'}
+      ${list || '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Tu n\'es dans aucun Flight.</p><small>Un Flight, c\'est ton cercle de golf : vos parties, vos scores en direct et le Fly Tour, entre vous seulement.</small></div>'}
       <button class="btn big full" id="fl-new">＋ Créer un Flight</button>
       <button class="btn ghost full" id="fl-join">Rejoindre avec un code</button>
       <p class="hint">Tu ne vois que les golfeurs de tes Flights. On n'entre dans un Flight qu'avec son code à 6 caractères, donné par un membre.</p></main>`;
@@ -386,7 +386,7 @@
       <p class="muted" style="text-align:center;margin:0">Code pour rejoindre le Flight</p>
       <div class="flcode">${esc(f.code)}</div>
       <button class="btn big full" id="fd-share">📤 Envoyer le code</button>
-      <p class="hint" style="text-align:center">Ton pote installe d'abord Fly18 (« Inviter un pote » sur l'accueil), puis il entre ce code au démarrage ou dans Réglages → Mes Flights.</p>
+      <p class="hint" style="text-align:center">Le golfeur installe d'abord Fly18 (« Partager » sur l'accueil), puis il entre ce code au démarrage ou dans Réglages → Mes Flights.</p>
       <h2>Membres · ${(f.members || []).length}</h2>
       <div class="flmem">${(f.members || []).map(m => `<span>${S.onlineMap[m.device_id] && m.device_id !== S.me.deviceId ? '<i class="led sm"></i>' : ''}${esc(m.name || '?')}${m.device_id === f.admin_device ? ' <small>admin</small>' : ''}${admin && m.device_id !== S.me.deviceId ? ` <button class="x" data-rm="${esc(m.device_id)}" aria-label="Retirer">✕</button>` : ''}</span>`).join('')}</div>
       ${admin ? `<div class="row2"><button class="btn ghost" id="fd-ren">Renommer</button><button class="btn ghost" id="fd-code">Nouveau code</button></div><p class="hint">« Nouveau code » désactive l'ancien code.</p>` : ''}
@@ -407,8 +407,8 @@
   }
   function viewFlightOnboard() {
     $app.innerHTML = `<main class="welcome"><i class="crest big">${FW_IC('crest')}</i><h1 style="font-size:24px">Ton Flight</h1>
-      <p>Un Flight, c'est ta bande de golf : vos parties, le Live et le Fly Tour entre vous seulement.</p>
-      <div class="form"><label>Code du Flight (donné par un pote)<input id="ob-code" maxlength="6" autocapitalize="characters" placeholder="ex. 7KQ2PX" style="text-transform:uppercase;letter-spacing:.2em;text-align:center;font-weight:800"></label>
+      <p>Un Flight, c'est ton cercle de golf : vos parties, le Live et le Fly Tour, entre vous seulement.</p>
+      <div class="form"><label>Code du Flight (donné par un membre)<input id="ob-code" maxlength="6" autocapitalize="characters" placeholder="ex. 7KQ2PX" style="text-transform:uppercase;letter-spacing:.2em;text-align:center;font-weight:800"></label>
       <button class="btn big full" id="ob-join">Rejoindre le Flight</button>
       <button class="btn ghost full" id="ob-new">Créer mon Flight</button>
       <button class="btn ghost full" id="ob-later" style="border:0">Plus tard</button></div></main>`;
@@ -422,7 +422,7 @@
     let f = null;
     try { const { data } = await sb.from('flights').select('*').eq('code', (code || '').toUpperCase()).limit(1); f = data && data[0]; } catch (e) { }
     const main = $app.querySelector('main');
-    if (!f) { main.innerHTML = '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Ce lien d\'invitation n\'est plus valable.</p><small>Demande un nouveau lien à ton pote.</small></div><a class="btn full" href="#/">Accueil</a>'; return; }
+    if (!f) { main.innerHTML = '<div class="empty"><i class="crest big">' + FW_IC('crest') + '</i><p>Ce lien d\'invitation n\'est plus valable.</p><small>Demande un nouveau code à un membre du Flight.</small></div><a class="btn full" href="#/">Accueil</a>'; return; }
     if (S.flights.some(x => x.id === f.id)) { location.hash = '#/flight/' + f.id; return; }
     main.innerHTML = `<div class="empty"><i class="crest big">${FW_IC('crest')}</i><p>Tu es invité à rejoindre le Flight</p><b style="font-size:22px">${esc(f.name)}</b></div><button class="btn big full" id="fj-ok">Rejoindre le Flight</button><a class="btn ghost full" href="#/">Plus tard</a>`;
     main.querySelector('#fj-ok').onclick = async () => { try { await joinFlightByCode(f.code); toast('Bienvenue dans « ' + f.name + ' »'); location.hash = '#/flight/' + f.id; } catch (e) { fwAlert(e.message); } };
@@ -448,7 +448,7 @@
   function copainGroups(list) {
     const used = new Set(), out = [];
     S.flights.forEach(f => { const devs = new Set((f.members || []).map(x => x.device_id)); const ms = list.filter(m => m.device_id && devs.has(m.device_id) && !used.has(m.key)); ms.forEach(m => used.add(m.key)); if (ms.length) out.push([f.name, ms, f]); });
-    const rest = list.filter(m => !used.has(m.key)); if (rest.length) out.push([out.length ? 'Déjà joué avec' : 'Les copains', rest]);
+    const rest = list.filter(m => !used.has(m.key)); if (rest.length) out.push([out.length ? 'Déjà joué avec' : 'Golfeurs', rest]);
     return out;
   }
   const chipHtml = (m, on, attr) => `<button ${attr}="${esc(m.key)}" ${m.device_id ? `data-dev="${esc(m.device_id)}"` : ''} class="${on ? 'on' : ''} ${S.onlineMap[m.device_id] && isKnown(m.device_id) ? 'isonline' : ''}"><i class="led sm"></i>${esc(m.name)}${m.device_id ? ' 📱' : ''}</button>`;
@@ -561,7 +561,7 @@
     const el = document.createElement('div'); el.className = 'modal';
     const conf = Array.from({ length: 28 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .5}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 4]}"></i>`).join('');
     el.innerHTML = `<div class="sheet welcome-golf"><div class="conf">${conf}</div><img class="wlogo" src="${logoURL()}" alt=""><h2>Bienvenue au golf !</h2><div class="wg-name">${esc(course.name)}</div>
-      <p>Bonne partie ${esc(S.me.name)}<br><small>Et que le dernier paie sa tournée</small></p>
+      <p>Bonne partie, ${esc(S.me.name)}<br><small>Rendez-vous au 19e trou</small></p>
       <div id="wg-live"></div>
       ${potes.length ? `<p class="wg-potes">${potes.map(m => '<i class="led"></i>' + esc(m.name)).join(' · ')} ${potes.length > 1 ? 'sont' : 'est'} aussi sur le parcours</p>` : ''}
       <a class="btn big full" href="#/new/${encodeURIComponent(course.id)}" id="wg-new">Nouvelle partie ici</a>
@@ -687,8 +687,8 @@
     markSeen(e.id);
     const p = g.players.find(x => x.id === e.player_id); const name = p ? p.name : '?';
     let emoji, title, sub;
-    if (e.type === 'rouge') { emoji = '🍺'; title = name + " n'a pas passé les rouges !"; sub = 'Trou ' + e.hole + ' · une tournée de plus pour ' + name; }
-    else { const s = shotOf(e.type); emoji = s[1]; title = (e.type === 'autre' && e.label ? e.label : s[2]) + ' de ' + name + ' !'; sub = (e.hole ? 'Trou ' + e.hole + ' · ' : '') + 'signalé par ' + (e.by_name || '?'); }
+    if (e.type === 'rouge') { emoji = FW_IC('tournee'); title = 'Short drive · ' + name; sub = 'Trou ' + e.hole + ' · un verre au 19e trou'; }
+    else { const s = shotOf(e.type); emoji = s[1]; title = (e.type === 'autre' && e.label ? e.label : s[2]) + ' · ' + name; sub = (e.hole ? 'Trou ' + e.hole + ' · ' : '') + 'signalé par ' + (e.by_name || '?'); }
     const el = document.createElement('div'); el.className = 'pop' + (e.type === 'rouge' ? ' rouge' : '');
     const conf = Array.from({ length: 36 }, (_, i) => `<i style="left:${Math.random() * 100}%;animation-delay:${Math.random() * .6}s;background:${['#2B5240', '#C9A55A', '#FFFFFF', '#E6C886', '#1F3D2E', '#F4F5F2'][i % 6]};transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
     el.innerHTML = `<div class="conf">${e.type === 'rouge' ? '' : conf}</div><div class="popcard"><div class="popemoji">${emoji}</div><div class="poptitle">${esc(title)}</div><div class="popsub">${esc(sub)}</div><small>${esc(g.game.course.name)}</small></div>`;
@@ -697,7 +697,7 @@
     el.onclick = close; setTimeout(close, 4500);
   }
   function invitePopup(g) {
-    const host = g.game.created_by || 'Un pote';
+    const host = g.game.created_by || 'Un golfeur';
     const el = document.createElement('div'); el.className = 'modal';
     el.innerHTML = `<div class="sheet"><div class="popemoji">⛳</div><h2 style="text-align:center">${esc(host)} t'a ajouté à une partie</h2><p style="text-align:center"><b>${esc(g.game.course.name)}</b><br>${frDate(g.game.play_date)}${g.game.tee_time ? ' à ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]}<br><small>${g.players.map(p => esc(p.name)).join(', ')}</small></p><a class="btn big full" href="#/game/${g.game.id}">Ouvrir la partie</a><button class="btn ghost full">Plus tard</button></div>`;
     document.body.appendChild(el);
@@ -734,12 +734,12 @@
     ['s100', '💯', 'Sous les 100', '18 trous en moins de 100', 's'],
     ['s90', '🚀', 'Sous les 90', '18 trous en moins de 90', 'g'],
     ['putt', '🏌️', 'Putter d\'or', '18 trous sans 3-putt (putts saisis)', 's'],
-    ['norouge', '🛡️', 'Jamais dans les rouges', '18 trous sans rouge', 'b'],
+    ['norouge', '🛡️', 'Toujours au-delà', '18 trous sans short drive', 'b'],
     ['win1', '🏆', 'Première victoire', 'Gagner une partie', 's'],
-    ['win5', '🏅', 'Patron', 'Gagner 5 parties', 'g'],
+    ['win5', '🏅', 'Leader', 'Gagner 5 parties', 'g'],
     ['nice5', '⭐', 'Showman', 'Recevoir 5 Nice shots', 's'],
     ['games10', '📅', 'Fidèle', 'Jouer 10 parties', 'b'],
-    ['rouge5', '🍺', 'Abonné aux tournées', '5 rouges pas passés', 'b']
+    ['rouge5', '🍺', 'Habitué du 19e trou', '5 short drives', 'b']
   ];
   function myTrophies() {
     const got = {};
@@ -871,8 +871,8 @@
   function rougeSheet(g, hole) {
     const el = document.createElement('div'); el.className = 'modal';
     const draw = () => {
-      el.innerHTML = `<div class="sheet"><h2 class="rgh">${FW_IC('croix')} Pas passé les rouges · trou ${hole}</h2>
-        <p class="muted">Touche le ou les joueurs concernés. Chaque rouge = une tournée 🍺</p>
+      el.innerHTML = `<div class="sheet"><h2 class="rgh">${FW_IC('croix')} Short drive · trou ${hole}</h2>
+        <p class="muted">Touche le ou les joueurs dont le drive n'a pas dépassé les marques rouges. Chacun offre un verre au 19e trou.</p>
         <div class="pick rpick">${rougeEligible(g).map(p => `<button data-p="${p.id}" class="${rougeEv(g, p.id, hole) ? 'on' : ''}">${esc(p.name)}</button>`).join('')}</div>
         <button class="btn full" id="rg-x">OK</button></div>`;
       el.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { const ev = rougeEv(g, b.dataset.p, hole); if (ev) removeEvent(g.game.id, ev.id); else { addEvent(g.game.id, { player_id: b.dataset.p, type: 'rouge', hole }); vibrate(); } draw(); });
@@ -895,9 +895,9 @@
     const course = gameCourse(g);
     const pay = gamePayers(g);
     const names = pay.last.map(x => x.name);
-    const title = names.length ? 'Merci ' + names.join(' et ') + ' !' : 'Égalité parfaite !';
-    const sub = names.length ? (pay.teamName ? (g.game.format === 'combo' ? pay.teamName + ' a perdu le duel : tournée d\'équipe 🍻' : pay.teamName + ', équipe dernière : tournée d\'équipe 🍻') : (names.length > 1 ? 'Derniers ex aequo : tournée partagée 🍻' : 'Dernier de la partie : c\'est ta tournée 🍻')) : 'Personne ne paie… cette fois.';
-    const extra = pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — pas passé les rouges au ${r.holes.join(', ')} → ${r.holes.length} tournée${r.holes.length > 1 ? 's' : ''}</li>`).join('');
+    const title = names.length ? names.join(' et ') + (names.length > 1 ? ' invitent' : ' invite') + ' au 19e trou' : 'Égalité parfaite';
+    const sub = names.length ? (pay.teamName ? (g.game.format === 'combo' ? pay.teamName + ' perd le duel' : pay.teamName + ' termine dernière') : (names.length > 1 ? 'Derniers ex aequo : le 19e trou est partagé' : 'Dernier de la partie')) : 'Aucun verre en jeu cette fois.';
+    const extra = pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — short drive au ${r.holes.join(', ')} → ${r.holes.length} verre${r.holes.length > 1 ? 's' : ''}</li>`).join('');
     const bubbles = Array.from({ length: 14 }, () => `<circle cx="${45 + Math.random() * 70}" cy="200" r="${2 + Math.random() * 3}" style="animation-delay:${1 + Math.random() * 2.5}s;animation-duration:${1.6 + Math.random() * 1.6}s"/>`).join('');
     const el = document.createElement('div'); el.className = 'beer';
     el.innerHTML = `<div class="beerin">
@@ -912,7 +912,7 @@
       </svg>
       <div class="beertitle">${esc(title)}</div><div class="beersub">${esc(sub)}</div>
       ${extra ? `<ul class="beerlist">${extra}</ul>` : ''}
-      <button class="btn big" id="cheers">Santé ! 🍻</button></div>`;
+      <button class="btn big" id="cheers">Cheers</button></div>`;
     document.body.appendChild(el); vibrate([80, 80, 80, 80, 200]);
     el.querySelector('#cheers').onclick = () => { el.classList.add('out'); setTimeout(() => el.remove(), 350); };
   }
@@ -1119,9 +1119,9 @@
       ${installBar()}
       ${open.map(card).join('')}
       <div class="acts"><a class="act pri" href="#/new">${FW_LI('plus', 2)}<b>Nouvelle partie</b></a><a class="act" href="#/live">${FW_LI('live')}<b>Live</b><span id="livecount" class="ldot"></span></a>${S.me.season ? `<a class="act tour" href="#/classement">${FW_LI('trophy')}<b>Fly Tour</b><span id="srank" class="rk"></span></a>` : `<button class="act" data-act="invite">${FW_LI('users')}<b>Inviter</b></button>`}</div>
-      ${potes.length ? '<div class="sec"><h2>Mes potes jouent</h2></div>' + potes.map(potesCard).join('') : ''}
+      ${potes.length ? '<div class="sec"><h2>Mon Flight joue</h2></div>' + potes.map(potesCard).join('') : ''}
       ${done.length ? `<div class="sec"><h2>Dernières parties</h2><a href="#/stats">Tout voir</a></div><div class="hlist">${done.slice(0, 3).map(histCard).join('')}</div>` : ''}
-      ${!S.flights.length ? `<a class="sinvite" href="#/flights"><span class="sic">${FW_LI('shield')}</span><div><b>Rejoins ou crée ton Flight</b><small>Ta bande de golf : vos parties, le Live et le Fly Tour entre vous.</small></div>${FW_LI('chev')}</a>` : ''}
+      ${!S.flights.length ? `<a class="sinvite" href="#/flights"><span class="sic">${FW_LI('shield')}</span><div><b>Rejoins ou crée ton Flight</b><small>Ton cercle de golf : vos parties, le Live et le Fly Tour, entre vous.</small></div>${FW_LI('chev')}</a>` : ''}
       ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked ? `<div class="sinvite" id="sinvite"><span class="sic gold">${FW_LI('trophy')}</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
       <div class="mods"><a class="mod" href="#/stats">${FW_LI('stats')}<span>Stats</span></a><a class="mod" href="#/courses">${FW_LI('flag')}<span>Parcours</span></a><button class="mod" data-act="share">${FW_LI('share')}<span>Partager</span></button></div>
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
@@ -1185,7 +1185,7 @@
         <div id="n-players" class="${st.hcp ? '' : 'noidx'}">${st.players.map((p, i) => `<div class="prow"><input placeholder="Nom" data-i="${i}" data-f="name" value="${esc(p.name)}"><input placeholder="Index" inputmode="decimal" data-i="${i}" data-f="idx" value="${esc(p.idx)}">${i ? `<button class="x" data-del="${i}">✕</button>` : '<span class="me">moi</span>'}</div>`).join('')}</div>
         ${partners.length ? copainGroups(partners).map(([t, ms, fl]) => `<h2>${fl ? '<i class="crest">' + flCrest(fl) + '</i>' : ''}${esc(t)}</h2><div class="pick">${ms.map(m => chipHtml(m, st.players.some(p => p.key === m.key), 'data-pk')).join('')}</div>`).join('') + `<p class="hint">Touche un copain pour l'ajouter : la partie apparaît directement sur son téléphone. Point vert = connecté. Même hors ligne (batterie à plat…), tu peux saisir ses scores pour lui.</p>` : ''}
         <button class="btn ghost" id="n-add">＋ Ajouter un joueur</button>
-        <p class="hint">Tes potes peuvent aussi se rajouter eux-mêmes avec le lien d'invitation, une fois la partie créée.</p>
+        <p class="hint">Les autres golfeurs peuvent aussi rejoindre la partie avec son code, une fois créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
         ${teamsHtml}
         <button class="btn big" id="n-go">Créer la partie</button>
@@ -1364,7 +1364,7 @@
     body.innerHTML = holeChips(g, h) + `
       <section class="holehead"><div class="hn">${h}</div><div><b>Par ${ch.par}</b> · HCP ${ch.si}${dist ? ' · ' + dist + ' m' : ''}<small>${stars ? `<span class="stars">${stars}</span> ` : ''}${ch.note ? esc(ch.note) : '<i class="muted">Pas de note sur ce trou</i>'}</small></div><button class="icon" id="h-note" aria-label="Modifier la note">✏️</button></section>
       <section class="gps" id="gps"></section>
-      <div class="actrow"><button class="act good" id="h-shot">${FW_IC('gold')}<b>Nice shot</b></button>${rougeEligible(g).length ? `<button class="act bad" id="h-rouge">${FW_IC('croix')}<b>Rouges</b>${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length ? `<span class="actn">${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length}</span>` : ''}</button>` : ''}</div>
+      <div class="actrow"><button class="act good" id="h-shot">${FW_IC('gold')}<b>Nice shot</b></button>${rougeEligible(g).length ? `<button class="act bad" id="h-rouge">${FW_IC('croix')}<b>Short drive</b>${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length ? `<span class="actn">${(g.events || []).filter(e => e.type === 'rouge' && e.hole === h).length}</span>` : ''}</button>` : ''}</div>
       ${phaseInfo}
       <section class="players">${sumRows}</section>
       ${!isTeamGame(g) && g.players.length < 8 ? '<button class="btn ghost full" id="h-addp">＋ Ajouter un joueur</button>' : ''}
@@ -1481,7 +1481,7 @@
   async function editNote(g, h) {
     const course = getCourse(g.game.course_id); if (!course) return;
     const ch = course.holes[h - 1];
-    const note = await fwPrompt('Note / difficultés du trou ' + h + ' (partagée avec tes potes) :', ch.note || '');
+    const note = await fwPrompt('Note / difficultés du trou ' + h + ' (partagée avec ton Flight) :', ch.note || '');
     if (note === null) return;
     const d = await fwPrompt('Difficulté de 1 (facile) à 5 (piège) — vide pour aucune :', ch.difficulty || '');
     const copy = JSON.parse(JSON.stringify(course));
@@ -1616,7 +1616,7 @@
         html += `<section class="combo"><div class="cteam">${teamDot(ta.color)}<b>${esc(ta.name)}</b><small>${ta.members.map(m => esc(m.name)).join(' · ')}</small></div><div class="cscore">${fmtPts(r.pts[0])} – ${fmtPts(r.pts[1])}</div><div class="cteam r">${teamDot(tb.color)}<b>${esc(tb.name)}</b><small>${tb.members.map(m => esc(m.name)).join(' · ')}</small></div></section>
           <h2>🤝 Scramble · trous 1-9</h2><div class="duel"><b>${esc(r.scrLabel)}</b><small>${r.scr.map((x, i) => esc(r.tps[i].name) + ' : ' + (x.played ? x.gross + ' brut / ' + x.net + ' net (HCP ' + x.ph + ')' : '–')).join(' · ')}</small></div>
           <h2>⚔️ Match play · trous 10-18</h2>${r.matches.map(x => `<div class="duel"><b>${esc(x.a.name)} vs ${esc(x.b.name)}</b><small>${esc(x.m.label)}${x.m.strokes ? ' · ' + esc(x.m.receiver) + ' reçoit ' + x.m.strokes : ''}</small></div>`).join('')}
-          <p class="hint">1 point pour le scramble, 1 point par match (½ en cas d'égalité). L'équipe qui perd paie la tournée.</p>`;
+          <p class="hint">1 point pour le scramble, 1 point par match (½ en cas d'égalité). L'équipe qui perd invite au 19e trou.</p>`;
       } else html += '<p class="muted">Le combo se joue à 2 équipes.</p>';
     }
     if (g.game.format === 'scramble') html += '<h2>Équipes</h2>';
@@ -1629,8 +1629,8 @@
     html += `${g.game.format === 'combo' ? '<!--' : ''}<table class="board ${C.noHcp(g.game) ? 'nohcp' : ''}"><thead><tr><th>#</th><th>${isTeamGame(g) ? 'Équipe' : 'Joueur'}</th><th>Trous</th><th>Brut</th><th>Net</th><th>Pts</th></tr></thead><tbody>${rows.map((r, i) => `<tr class="${g.players.find(p => p.id === r.playerId && p.device_id === S.me.deviceId) ? 'meRow' : ''}"><td>${i + 1}</td><td>${isTeamGame(g) ? teamDot((teamPlayers(g).find(t => t.id === r.playerId) || {}).color) : led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}<small>${isTeamGame(g) ? esc((teamPlayers(g).find(t => t.id === r.playerId) || { members: [] }).members.map(m => m.name).join(' · ')) + ' · ' : ''}${C.noHcp(g.game) ? '' : 'HCP ' + r.ph}</small></td><td>${r.played}/${r.holes}</td><td>${r.played ? r.gross + '<small>' + fmtPar(r.toPar) + '</small>' : '–'}</td><td>${r.played ? r.net + '<small>' + fmtPar(r.netToPar) + '</small>' : '–'}</td><td><b>${r.points}</b></td></tr>`).join('')}</tbody></table>${g.game.format === 'combo' ? '-->' : ''}
       ${(() => {
         const pay = gamePayers(g);
-        const lines = pay.last.map(x => `<li>${FW_IC('tournee')} <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>🍺 <b>${esc(r.name)}</b> — pas passé les rouges (trou ${r.holes.join(', ')})</li>`));
-        return `<h2><button class="beerbtn" id="b-beer" aria-label="Revoir l'animation">${FW_IC('tournee')}</button> Tournées</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Personne ne paie pour l\'instant.</p>'}`;
+        const lines = pay.last.map(x => `<li>${FW_IC('tournee')} <b>${esc(x.name)}</b> — ${pay.teamName ? esc(pay.teamName) + (g.game.status === 'done' ? '' : ' (pour l\'instant)') : (g.game.status === 'done' ? 'dernier' : 'dernier pour l\'instant')}</li>`).concat(pay.rouges.map(r => `<li>${FW_IC('tournee')} <b>${esc(r.name)}</b> — short drive (trou ${r.holes.join(', ')})</li>`));
+        return `<h2><button class="beerbtn" id="b-beer" aria-label="Revoir l'animation">${FW_IC('tournee')}</button> 19e trou</h2>${lines.length ? `<ul class="paylist">${lines.join('')}</ul>` : '<p class="muted">Aucun verre en jeu pour l\'instant.</p>'}`;
       })()}
       ${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'react').length ? `<h2>Moments forts</h2><ul class="feed">${(g.events || []).filter(e => e.type !== 'rouge' && e.type !== 'react').slice().reverse().map(e => { const s = shotOf(e.type); const p = g.players.find(x => x.id === e.player_id); return `<li><span>${s[1]}</span><div><b>${esc(e.type === 'autre' && e.label ? e.label : s[2])}</b> — ${esc(p ? p.name : '?')}<small>${e.hole ? 'Trou ' + e.hole + ' · ' : ''}par ${esc(e.by_name || '?')}</small></div></li>`; }).join('')}</ul>` : ''}
       <p class="hint">Balle ramassée (X) : 0 point en Stableford, comptée par + ${C.xcapOf(g.game)}${C.noHcp(g.game) ? '' : ' (+ coups reçus)'} en stroke play.</p>
@@ -1668,7 +1668,7 @@
 
   /* --- 👥 Les copains inscrits --- */
   async function viewCopains() {
-    $app.innerHTML = topbar('👥 Les copains', '#/profile') + '<main id="cpb"><p class="muted">Chargement…</p></main>';
+    $app.innerHTML = topbar('Golfeurs inscrits', '#/profile') + '<main id="cpb"><p class="muted">Chargement…</p></main>';
     updateSyncBadge();
     const el = document.getElementById('cpb');
     if (!remoteOn()) { el.innerHTML = '<p class="err">Serveur non configuré.</p>'; return; }
@@ -1715,20 +1715,20 @@
     const draw = async () => {
       const list = await fetchLive();
       const el = document.getElementById('livebody'); if (!el) return;
-      if (!list.length) { el.innerHTML = '<div class="empty">⛳<p>Aucune partie aujourd\'hui pour l\'instant.</p><small>Dès que des copains jouent, leurs parties apparaissent ici en direct.</small></div>'; return; }
+      if (!list.length) { el.innerHTML = '<div class="empty">⛳<p>Aucune partie aujourd\'hui pour l\'instant.</p><small>Dès que des golfeurs de ton Flight jouent, leurs parties apparaissent ici en direct.</small></div>'; return; }
       const card = g => {
         const course = g.game.course; const holesAll = C.holesFor(g.game.mode, course.holes.length);
         const rows = standingsLite(g);
         const done = Math.max(0, ...g.players.map(p => holesAll.filter(h => (g.scores[p.id] || {})[h]).length));
         const lastEv = g.events.filter(e => e.type !== 'tournee' && e.type !== 'react').slice(-1)[0];
-        const evTxt = lastEv ? (lastEv.type === 'rouge' ? FW_IC('tournee') + ' ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " n'a pas passé les rouges" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
+        const evTxt = lastEv ? (lastEv.type === 'rouge' ? FW_IC('tournee') + ' ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?') + " · short drive" : shotOf(lastEv.type)[1] + ' ' + esc(lastEv.type === 'autre' && lastEv.label ? lastEv.label : shotOf(lastEv.type)[2]) + ' de ' + esc((g.players.find(p => p.id === lastEv.player_id) || {}).name || '?')) : '';
         const mine = S.games[g.game.id] && !S.games[g.game.id].follow;
         const fin = g.game.status === 'done';
         const pay = fin ? gamePayers(g) : null;
         return `<button class="livecard ${fin ? 'fin' : ''}" data-g="${g.game.id}"><div class="lc-top"><b>${esc(course.name)}</b>${fin ? '<span class="findot">🏁 Terminée</span>' : '<span class="livedot">● LIVE</span>'}</div>
           <small>${FORMATS[g.game.format]} · ${fin ? holesAll.length + ' trous' : 'trou ' + Math.min(done + 1, holesAll.length) + '/' + holesAll.length}${mine ? ' · ta partie' : ''}</small>
           <ol>${rows.slice(0, 4).map(r => `<li><span>${led((g.players.find(p => p.id === r.playerId) || {}).device_id)}${esc(r.name)}</span><b>${esc(r.label)}</b></li>`).join('')}</ol>
-          ${fin && pay && pay.last.length ? `<div class="lc-ev">🍻 Merci ${esc(pay.last.map(x => x.name).join(' et '))} !</div>` : (evTxt ? `<div class="lc-ev">${evTxt}</div>` : '')}</button>`;
+          ${fin && pay && pay.last.length ? `<div class="lc-ev">${FW_IC('tournee')} ${esc(pay.last.map(x => x.name).join(' et '))} invite au 19e trou</div>` : (evTxt ? `<div class="lc-ev">${evTxt}</div>` : '')}</button>`;
       };
       const enCours = list.filter(g => g.game.status !== 'done'), finies = list.filter(g => g.game.status === 'done');
       el.innerHTML = (enCours.length ? '<h2>● En cours</h2><p class="hint">Mises à jour en direct. Touche une partie pour la suivre.</p>' + enCours.map(card).join('') : '<p class="muted">Aucune partie en cours en ce moment.</p>')
@@ -1758,7 +1758,7 @@
     const draw = () => {
       const list = copainList().filter(m => !(m.device_id && inGame.has(m.device_id)) && !g.players.some(p => !p.device_id && p.name.toLowerCase() === m.name.toLowerCase()));
       el.innerHTML = `<div class="sheet"><h2>＋ Ajouter un joueur</h2>
-        ${list.length ? `<div class="pick">${list.map(m => chipHtml(m, false, 'data-ak')).join('')}</div><p class="hint">Point vert = connecté. Hors ligne ? Pas grave, tu saisis ses scores pour lui.</p>` : '<p class="muted">Tous les copains inscrits sont déjà dans la partie.</p>'}
+        ${list.length ? `<div class="pick">${list.map(m => chipHtml(m, false, 'data-ak')).join('')}</div><p class="hint">Point vert = connecté. Hors ligne ? Tu peux saisir ses scores pour lui.</p>` : '<p class="muted">Tous les copains inscrits sont déjà dans la partie.</p>'}
         <h2>Ou un invité</h2>
         <div class="form"><div class="row2"><label>Prénom<input id="ap-n"></label>${C.noHcp(g.game) ? '' : '<label>Index<input id="ap-i" inputmode="decimal"></label>'}</div></div>
         <button class="btn big full" id="ap-go">Ajouter l'invité</button>
@@ -1963,11 +1963,11 @@
     });
     // tournées
     if (payH) {
-      y += 44; x.fillStyle = '#9a5b00'; x.font = F(800, 26); x.fillText('TOURNÉES 🍺', pad, y); y += 14;
-      if (pay.last.length) { y += 40; x.fillStyle = '#14201a'; x.font = F(800, 30); x.fillText('🍻 Merci ' + pay.last.map(p => p.name).join(' et ') + ' !', pad, y); }
-      pay.rouges.forEach(r => { y += 44; x.font = F(600, 26); x.fillText('🍺 ' + r.name + ' — pas passé les rouges (trou ' + r.holes.join(', ') + ')', pad, y); });
+      y += 44; x.fillStyle = '#9a5b00'; x.font = F(800, 26); x.fillText('19E TROU', pad, y); y += 14;
+      if (pay.last.length) { y += 40; x.fillStyle = '#14201a'; x.font = F(800, 30); x.fillText(pay.last.map(p => p.name).join(' et ') + ' invite au 19e trou', pad, y); }
+      pay.rouges.forEach(r => { y += 44; x.font = F(600, 26); x.fillText(r.name + ' — short drive (trou ' + r.holes.join(', ') + ')', pad, y); });
     }
-    x.fillStyle = '#68756d'; x.font = F(600, 22); x.textAlign = 'center'; x.fillText('Fly18 — golf entre potes', W / 2, H - 30);
+    x.fillStyle = '#68756d'; x.font = F(600, 22); x.textAlign = 'center'; x.fillText('Fly18 · Golf · Live scoring · 19th hole', W / 2, H - 30);
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     const name = 'carte-' + (course.name.split(' ').pop() || 'golf').toLowerCase() + '-' + g.game.play_date + '.png';
     const file = new File([blob], name, { type: 'image/png' });
@@ -1984,7 +1984,7 @@
     let qr = '';
     try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(link); q.make(); qr = q.createSvgTag({ cellSize: 5, margin: 2, scalable: true }); } } catch (e) { }
     dlg.innerHTML = `<div class="sheet"><h2>Inviter à la partie</h2>
-      ${!remoteOn() ? '<p class="err">Serveur non configuré : tes potes ne pourront pas rejoindre. Va dans Profil > Serveur.</p>' : ''}
+      ${!remoteOn() ? '<p class="err">Serveur non configuré : les autres golfeurs ne pourront pas rejoindre. Va dans Profil > Serveur.</p>' : ''}
       <div class="code">${esc(g.game.code)}</div>
       ${qr ? `<div class="qr">${qr}</div>` : ''}
       <div class="form"><div class="row2"><label>Date<input type="date" id="i-date" value="${esc(g.game.play_date || '')}"></label><label>Départ<input type="time" id="i-time" value="${esc(g.game.tee_time || '')}"></label></div></div>
@@ -2049,7 +2049,7 @@
     const played = mine.filter(g => wonGame(g) !== null);
     const wins = played.filter(g => wonGame(g) === true).length;
     const rougesTot = mine.reduce((n, g) => n + rougesIn(g), 0);
-    const palmares = `<div class="kpis three palm"><div><b>🏆 ${wins}</b><small>coupe${wins > 1 ? 's' : ''} remportée${wins > 1 ? 's' : ''}</small></div><div><b>${played.length ? Math.round(wins * 100 / played.length) + '%' : '–'}</b><small>de victoires (${wins}/${played.length})</small></div><div><b>🍺 ${rougesTot}</b><small>rouge${rougesTot > 1 ? 's' : ''} pas dépassé${rougesTot > 1 ? 's' : ''}</small></div></div>`;
+    const palmares = `<div class="kpis three palm"><div><b>🏆 ${wins}</b><small>coupe${wins > 1 ? 's' : ''} remportée${wins > 1 ? 's' : ''}</small></div><div><b>${played.length ? Math.round(wins * 100 / played.length) + '%' : '–'}</b><small>de victoires (${wins}/${played.length})</small></div><div><b>${rougesTot}</b><small>short drive${rougesTot > 1 ? 's' : ''}</small></div></div>`;
     // sélection selon le filtre
     let sel = rounds, single = null;
     if (mode === 'last') { single = rounds[0] || null; sel = single ? [single] : []; }
@@ -2067,7 +2067,7 @@
     if (single) {
       const r = single, w = wonGame(r.g), rg = rougesIn(r.g);
       head = `<section class="card statround"><b>${esc(r.course.name)}</b><small>${frDate(r.g.game.play_date)} · ${FORMATS[r.g.game.format] || ''} · ${r.s.played}/${r.s.holes} trous${w === true ? ' · 🏆 gagnée' : ''}</small></section>`;
-      kpis = `<div class="kpis"><div><b>${r.s.gross}</b><small>brut (${fmtPar(r.s.toPar)})</small></div><div><b>${r.s.points}</b><small>points Stableford</small></div><div><b>${r.s.putts != null ? r.s.putts : '–'}</b><small>putts</small></div><div><b>${f1(avg(puttsArr))}</b><small>putts / trou</small></div><div><b>${pick}</b><small>croix</small></div><div><b>🍺 ${rg}</b><small>rouge${rg > 1 ? 's' : ''}</small></div></div>`;
+      kpis = `<div class="kpis"><div><b>${r.s.gross}</b><small>brut (${fmtPar(r.s.toPar)})</small></div><div><b>${r.s.points}</b><small>points Stableford</small></div><div><b>${r.s.putts != null ? r.s.putts : '–'}</b><small>putts</small></div><div><b>${f1(avg(puttsArr))}</b><small>putts / trou</small></div><div><b>${pick}</b><small>croix</small></div><div><b>${rg}</b><small>short drive${rg > 1 ? 's' : ''}</small></div></div>`;
     } else {
       kpis = `<div class="kpis"><div><b>${rounds.length}</b><small>parties</small></div><div><b>${f1(avg(full18.map(r => r.s.gross)))}</b><small>brut moy. 18 t.</small></div><div><b>${full18.length ? Math.min(...full18.map(r => r.s.gross)) : '–'}</b><small>meilleur 18 t.</small></div><div><b>${f1(avg(full18.map(r => r.s.points)))}</b><small>Stableford moy.</small></div><div><b>${f1(avg(nine.map(r => r.s.gross)))}</b><small>brut moy. 9 t.</small></div><div><b>${f1(avg(puttsArr))}</b><small>putts / trou</small></div></div>`;
       const last = full18.slice(0, 10).reverse();
@@ -2156,7 +2156,7 @@
   /* --- Bienvenue (1re installation) --- */
 
   /* ---------- Classement de la saison (points par mois) ---------- */
-  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Pas passé les rouges', -3], ['Nice shot reçu d\'un pote (3 max / partie)', 2], ['Nice shot donné à un pote (3 max / partie)', 1], ['Participation (par 9 trous)', 5], ['Victoire', 5]];
+  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Short drive', -3], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1], ['Participation (par 9 trous)', 5], ['Victoire', 5]];
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const monthKey = d => d.slice(0, 7);
   // points d'une partie terminée, découpée en blocs de 9 trous (aller / retour), par joueur inscrit
@@ -2192,7 +2192,7 @@
         else if (diff === 2) add(h, 'Double bogey' + nt, -2);
         else add(h, 'Triple+' + nt, -3);
       });
-      ev.filter(e => e.type === 'rouge' && e.player_id === p.id).forEach(e => add(e.hole || holes[0], 'Rouges', -3));
+      ev.filter(e => e.type === 'rouge' && e.player_id === p.id).forEach(e => add(e.hole || holes[0], 'Short drives', -3));
       // Nice shots « fair-play » : comptent seulement s'ils viennent d'un autre joueur, 1 par trou, 3 max par partie
       const norm = x => (x || '').trim().toLowerCase();
       const recvd = []; const seenH = new Set();
@@ -2372,7 +2372,7 @@
   function inviteSheet() {
     let qr = '';
     try { if (window.qrcode) { const q = window.qrcode(0, 'M'); q.addData(APP_URL); q.make(); qr = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); } } catch (e) { }
-    const msg = 'Rejoins-nous sur Fly18 ⛳ — l\'appli golf des copains (scores en direct, GPS, et le dernier paie sa tournée 🍺).\nOuvre ce lien avec Chrome et installe-la : ' + APP_URL;
+    const msg = 'Rejoins-moi sur Fly18 : scores en direct, GPS, Fly Tour, et rendez-vous au 19e trou.\nOuvre ce lien avec Chrome et installe l\'appli : ' + APP_URL;
     const el = document.createElement('div'); el.className = 'modal';
     el.innerHTML = `<div class="sheet invite"><h2 class="rgh">${FW_IC('invite')} Partager l'appli</h2>
       <p class="muted">Il scanne le code avec l'appareil photo de son téléphone : l'appli s'ouvre et lui propose de l'installer.</p>
@@ -2408,7 +2408,7 @@
     el.onclick = e => { if (e.target === el) el.remove(); };
   }
   function viewWelcome() {
-    $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fly18"><h1>${WORDMARK}</h1><div class="beta w">Bêta version pour les copains</div><p>Le golf entre potes : scores, Stableford, GPS…<br>et le dernier paie sa tournée 🍺</p>
+    $app.innerHTML = `<main class="welcome"><img class="wlogo" src="${logoURL()}" alt="Fly18"><h1>${WORDMARK}</h1><div class="beta w">Private beta</div><p>Live scoring, Stableford, GPS…<br>et rendez-vous au 19e trou.</p>
       <div class="form"><label>Ton prénom / surnom<input id="w-name" autocomplete="nickname"></label>
       <div class="row2"><label>Index (facultatif)<input id="w-idx" inputmode="decimal" placeholder="ex. 19.5"></label><label>Repère habituel<select id="w-tee">${['blanc', 'jaune', 'bleu', 'rouge'].map(t => `<option ${t === 'jaune' ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
       <button class="btn big full" id="w-go">C'est parti</button>
@@ -2419,7 +2419,7 @@
     $app.querySelector('#w-go').onclick = async () => {
       const n = $app.querySelector('#w-name').value.trim(); if (!n) return fwAlert('Ton prénom ?');
       // même prénom déjà inscrit ? c'est peut-être toi sur un autre appareil
-      if (remoteOn()) { try { const { data } = await sb.from('profiles').select('device_id').ilike('name', n).neq('device_id', S.me.deviceId).limit(1); if (data && data.length && await fwConfirm('Un copain « ' + n + ' » est déjà inscrit.\nC\'est toi sur un autre appareil (téléphone, PC…) ?', 'Oui, c\'est moi', false, 'Non, quelqu\'un d\'autre')) { $app.querySelector('#w-restore').click(); return; } } catch (e) { } }
+      if (remoteOn()) { try { const { data } = await sb.from('profiles').select('device_id').ilike('name', n).neq('device_id', S.me.deviceId).limit(1); if (data && data.length && await fwConfirm('Un golfeur « ' + n + ' » est déjà inscrit.\nC\'est toi sur un autre appareil (téléphone, PC…) ?', 'Oui, c\'est moi', false, 'Non, quelqu\'un d\'autre')) { $app.querySelector('#w-restore').click(); return; } } catch (e) { } }
       S.me.name = n; S.me.index = $app.querySelector('#w-idx').value.replace(',', '.'); S.me.tee = $app.querySelector('#w-tee').value;
       syncProfile(); await pullFlights(); if (!S.flights.length && !/^#\/(f|join)\//.test(location.hash)) return viewFlightOnboard(); route();
     };
@@ -2433,9 +2433,9 @@
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
       <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via Aa en haut d'une partie)</small></span></label>
       <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>Fly Tour<small>Le classement entre potes : une étape par mois, une Fly Cup au vainqueur (tes 4 meilleurs 9 trous)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>Apparaître en ligne<small>Ton Flight voit un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>Fly Tour<small>Le classement de ton Flight : une étape par mois, une Fly Cup au vainqueur (tes 4 meilleurs 9 trous)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>Suivre mon Flight<small>Pop-ups et 19e trou des parties de ton Flight, même sans être invité</small></span></label>
       <label>Apparence</label>
       <div class="seg" id="p-theme">${[['auto', '📱 Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre']].map(([k, v]) => `<button data-th="${k}" class="${S.me.theme === k ? 'on' : ''}">${v}</button>`).join('')}</div>
       <p class="hint">🌙 Sombre : vrai noir, économise la batterie sur les écrans OLED. ☀️ Clair : plus lisible en plein soleil.</p>
@@ -2455,7 +2455,7 @@
       <p class="hint">Tout est sauvegardé tout seul sur le serveur (profil, partenaires, parcours, parties) quelques secondes après chaque changement. Pour tout récupérer sur un autre téléphone : ton code ci-dessous.</p>
       <div class="row2"><button class="btn ghost" id="p-bknow">Sauvegarder maintenant</button><button class="btn ghost" id="p-bkrest">Restaurer</button></div>
       <a class="btn ghost full" href="#/flights"><i class="crest">${FW_IC('crest')}</i> Mes Flights</a>
-      ${isAdmin() ? '<a class="btn ghost full" href="#/copains">👥 Les copains inscrits (admin)</a>' : ''}
+      ${isAdmin() ? '<a class="btn ghost full" href="#/copains">Golfeurs inscrits (admin)</a>' : ''}
       <h2>Mon code profil</h2>
       <div class="code small">${esc(S.me.code)}</div>
       <p class="hint">Note-le : si tu changes de téléphone ou réinstalles l'appli, ce code récupère ton profil, tes partenaires et tes parties.</p>
@@ -2470,7 +2470,7 @@
     $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
     $app.querySelector('#p-season').onchange = e => { S.me.season = e.target.checked; S.me.seasonAsked = 1; syncProfile(); LS.set('fw_season', null); toast(S.me.season ? 'Bienvenue sur le Fly Tour 🏆' : 'Fly Tour désactivé'); };
-    $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis tes potes 👥' : 'Suivi des potes coupé'); };
+    $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis ton Flight' : 'Suivi du Flight coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
     $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return fwAlert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
     $app.querySelector('#p-restore').onclick = async () => { const c = await fwPrompt('Code de ton profil :'); if (!c) return; try { await restoreProfile(c); toast('Profil récupéré 👍'); viewProfile(); } catch (e) { fwAlert(e.message); } };
