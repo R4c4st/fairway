@@ -803,9 +803,11 @@
         run = d <= 0 ? run + 1 : 0; if (run >= 3) got.serie3 = 1;
         if (c.putts == null) puttsAll = false; else if (c.putts >= 3) puttsOk = false;
       });
-      if (holes.length === 18 && all && !pick) {
-        if (tot < 110) got.s110 = 1; if (tot < 100) got.s100 = 1; if (tot < 90) got.s90 = 1;
-        if (puttsAll && puttsOk) got.putt = 1;
+      // carte complète : la croix compte pour sa valeur sur la carte (par + croix), comme le total affiché
+      const sum = C.playerSummary(me, g.game, course, sc);
+      if (holes.length === 18 && sum.finished) {
+        if (sum.gross < 110) got.s110 = 1; if (sum.gross < 100) got.s100 = 1; if (sum.gross < 90) got.s90 = 1;
+        if (!pick && puttsAll && puttsOk) got.putt = 1;
       }
       if (holes.length === 18 && all && (me.tee || g.game.tee) !== 'rouge' && rougesIn(g) === 0) got.norouge = 1;
     });
