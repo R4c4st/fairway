@@ -1294,8 +1294,7 @@
         <p class="hint tip">Les autres golfeurs peuvent aussi rejoindre la partie avec son code, une fois créée.</p>
         ${st.format === 'match' ? '<p class="hint">Match play : chaque duel 1 contre 1 est calculé, coups rendus = différence des handicaps de jeu.</p>' : ''}
         ${teamsHtml}
-        <div class="gobar"><button class="btn big" id="n-go">Créer la partie</button></div>
-      </main>`;
+      </main><div class="gobar"><button class="btn big" id="n-go">Créer la partie</button></div>`;
       updateSyncBadge();
       const bind = (id, k) => { $app.querySelector(id).onchange = e => { st[k] = e.target.value; if (k === 'courseId') st.picked = true; draw(); }; };
       bind('#n-course', 'courseId'); bind('#n-tee', 'tee'); bind('#n-mode', 'mode'); bind('#n-format', 'format');
