@@ -2167,7 +2167,7 @@
   /* --- Bienvenue (1re installation) --- */
 
   /* ---------- Classement de la saison (points par mois) ---------- */
-  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Short drive', -3], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1], ['Participation (par 9 trous)', 5], ['Victoire', 5]];
+  const SEASON_RULES = [['Trou en un', 500], ['Albatros', 250], ['Eagle', 15], ['Birdie', 5], ['Par', 2], ['Bogey', -1], ['Double bogey', -2], ['Triple ou plus', -3], ['Croix', -4], ['Short drive', -3], ['Nice shot reçu (3 max / partie)', 2], ['Nice shot donné (3 max / partie)', 1], ['Participation (par 9 trous)', 5]];
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const monthKey = d => d.slice(0, 7);
   // points d'une partie terminée, découpée en blocs de 9 trous (aller / retour), par joueur inscrit
@@ -2215,15 +2215,6 @@
       Object.values(B).forEach(b => { if (b.n >= b.holes.length && b.holes.length) { b.pts += 5; b.det['Participation'] = (b.det['Participation'] || 0) + 5; } });
       out[p.device_id] = { name: p.name, blocks: Object.values(B).filter(b => b.n >= b.holes.length && b.holes.length) };
     });
-    // victoire : ajoutée au dernier bloc de la partie
-    if (!team && g.game.format !== 'match' && ps.length >= 2) {
-      const rows = C.leaderboard(ps, g.game, course, sc).filter(r => r.played);
-      if (rows.length >= 2) {
-        const key = r => g.game.format === 'stableford' ? -r.points : (g.game.format === 'brut' ? r.toPar : r.netToPar);
-        const best = Math.min(...rows.map(key));
-        rows.filter(r => key(r) === best).forEach(r => { const p = ps.find(x => x.id === r.playerId); const o = p && out[p.device_id]; const b = o && o.blocks[o.blocks.length - 1]; if (b) { b.pts += 5; b.det['Victoire'] = (b.det['Victoire'] || 0) + 5; } });
-      }
-    }
     return out;
   }
   const BEST_BLOCKS = 4;
