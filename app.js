@@ -58,8 +58,11 @@
   S.me.color = 'vert'; // palette unique
   const logoURL = () => 'icon.svg'; // identité unique (icône v2)
   // aides affichées aux débutants seulement : disparaissent après 3 parties créées
-  function nCreated() { return Math.max(LS.get('fw_ncreated', 0) || 0, Object.values(S.games || {}).filter(g => !g.follow).length); }
-  function applyTips() { document.documentElement.classList.toggle('pro', nCreated() >= 3); }
+  function nCreated() { return Math.max(LS.get('fw_ncreated', 0) || 0, Object.values(S.games || {}).filter(g => !g.follow || (g.players || []).some(p => p.device_id === S.me.deviceId)).length); }
+  function applyTips() {
+    if (!document.getElementById('fwtips')) { const s = document.createElement('style'); s.id = 'fwtips'; s.textContent = 'html.pro .hint.tip{display:none!important}'; document.head.appendChild(s); }
+    document.documentElement.classList.toggle('pro', nCreated() >= 3);
+  }
   function applyTheme() {
     const dark = S.me.theme === 'dark' || (S.me.theme === 'auto' && darkMQ && darkMQ.matches);
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
