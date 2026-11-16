@@ -1086,6 +1086,7 @@
     const [r, a, b] = h.split('/');
     if (r !== 'game') { stopGPS(); unsubscribe(); }
     if (r !== 'admin' && amap) { amap.remove(); amap = null; }
+    if (r !== 'visit' && vmap) { vmap.remove(); vmap = null; }
     setTimeout(trackPresence, 300);
     if (!S.me.name && r !== 'join' && r !== 'profile') return viewWelcome();
     if (r === 'f' && a) return viewFlightJoin(a);
@@ -1095,7 +1096,8 @@
     if (r === 'game' && a) { if (S.openGid !== a) { S.openGid = a; S.tab = null; S.mapEditMode = false; } return viewGame(a); }
     if (r === 'join' && a) return viewJoin(a);
     if (r === 'courses') return viewCourses();
-    if (r === 'course' && a) return viewCourseEdit(a);
+    if (r === 'course' && a) return isAdmin() ? viewCourseEdit(a) : viewVisit(a);
+    if (r === 'visit' && a) return viewVisit(a, b);
     if (r === 'profile') return viewProfile();
     if (r === 'stats') return viewStats();
     if (r === 'classement') return viewSeason();
@@ -2209,17 +2211,52 @@
   function viewCourses() {
     const list = Object.values(allCourses());
     $app.innerHTML = topbar('Parcours', '#/') + `<main>
-      ${list.map(c => { const placed = c.holes.filter(h => h.gps && h.gps.center).length; return `<a class="gcard" href="#/course/${encodeURIComponent(c.id)}"><div><b>${esc(c.name)}</b><small>${esc(c.city || '')} · ${c.holes.length} trous · par ${c.holes.reduce((s, h) => s + h.par, 0)}</small><small>Greens GPS : ${placed}/${c.holes.length}</small></div><div class="gscore">›</div></a>${isAdmin() ? `<a class="btn ghost full admbtn" href="#/admin/${encodeURIComponent(c.id)}">🛠️ Ajuster les drapeaux (admin)</a>` : ''}`; }).join('')}
-      <button class="btn big full" id="c-new">＋ Nouveau parcours</button>
-      <p class="hint">Les parcours (notes, difficultés, GPS des greens) sont partagés avec tous ceux qui utilisent ton serveur.</p></main>`;
+      ${list.map(c => { const placed = c.holes.filter(h => h.gps && h.gps.center).length; return `<a class="gcard" href="#/visit/${encodeURIComponent(c.id)}"><div><b>${esc(c.name)}</b><small>${esc(c.city || '')} · ${c.holes.length} trous · par ${c.holes.reduce((s, h) => s + h.par, 0)}</small>${isAdmin() ? `<small>Greens GPS : ${placed}/${c.holes.length}</small>` : ''}</div><div class="gscore">›</div></a>${isAdmin() ? `<div class="row2"><a class="btn ghost sm admbtn" href="#/course/${encodeURIComponent(c.id)}">✏️ Modifier</a><a class="btn ghost sm admbtn" href="#/admin/${encodeURIComponent(c.id)}">🛠️ Drapeaux</a></div>` : ''}`; }).join('')}
+      ${isAdmin() ? '<button class="btn big full" id="c-new">＋ Nouveau parcours</button>' : ''}</main>`;
     updateSyncBadge();
-    $app.querySelector('#c-new').onclick = async () => {
+    if (isAdmin()) $app.querySelector('#c-new').onclick = async () => {
       const name = await fwPrompt('Nom du parcours :'); if (!name) return;
       const n = (await fwChoice('Nombre de trous ?', [['18', '18 trous'], ['9', '9 trous', 'ghost']])) === '9' ? 9 : 18;
       const id = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Math.random().toString(36).slice(2, 6);
       const c = { id, name, city: '', tees: [{ id: 'jaune', name: 'Jaune', sss: null, slope: 113 }, { id: 'rouge', name: 'Rouge', sss: null, slope: 113 }], holes: Array.from({ length: n }, (_, i) => ({ n: i + 1, par: 4, si: i + 1, dist: {} })) };
       saveCourse(c); location.hash = '#/course/' + encodeURIComponent(id);
     };
+  }
+  /* --- Visite d'un parcours (lecture seule) : carte satellite trou par trou --- */
+  let vmap = null;
+  function viewVisit(idEnc, hEnc) {
+    const id = decodeURIComponent(idEnc); const c = getCourse(id); if (!c) { location.hash = '#/courses'; return; }
+    const n = c.holes.length; const h = Math.min(n, Math.max(1, +hEnc || 1)); const ho = c.holes[h - 1]; const gps = ho.gps || {};
+    const tees = (c.tees || []).filter(t => ho.dist && ho.dist[t.id]);
+    const stars = ho.difficulty ? '★'.repeat(ho.difficulty) + '☆'.repeat(5 - ho.difficulty) : '';
+    $app.innerHTML = topbar(shortCourse(c.name), '#/courses') + `<main class="visit">
+      <div class="chips">${c.holes.map(x => `<button data-vh="${x.n}" class="${x.n === h ? 'on' : ''}">${x.n}</button>`).join('')}</div>
+      <div class="vhead"><div class="vnum">${h}</div><div class="vinfo"><b>Par ${ho.par} · HCP ${ho.si}</b>${stars ? `<span class="vstars">${stars}</span>` : ''}
+        <div class="vtees">${tees.map(t => `<span><i style="background:${esc(t.color || '#999')}"></i>${ho.dist[t.id]} m</span>`).join('')}</div></div></div>
+      ${ho.note ? `<p class="vnote">${esc(ho.note)}</p>` : ''}
+      <div class="vmapwrap"><div id="vmap"></div>${gps.center ? '' : '<div class="vnomap">Green pas encore placé sur ce trou</div>'}</div>
+      <div class="vnav"><button class="btn ghost" data-vh="${h > 1 ? h - 1 : n}">‹ Trou ${h > 1 ? h - 1 : n}</button><button class="btn" data-vh="${h < n ? h + 1 : 1}">Trou ${h < n ? h + 1 : 1} ›</button></div>
+    </main>`;
+    updateSyncBadge();
+    $app.querySelectorAll('[data-vh]').forEach(b => b.onclick = () => { history.replaceState(null, '', '#/visit/' + encodeURIComponent(id) + '/' + b.dataset.vh); viewVisit(idEnc, b.dataset.vh); });
+    const on = $app.querySelector('.chips .on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+    loadLeaflet().then(() => {
+      if (vmap) { vmap.remove(); vmap = null; }
+      const ctr = gps.center || gps.tee || c.center || { lat: 46.6, lng: 2.4 };
+      vmap = L.map('vmap', { zoomControl: false, attributionControl: true }).setView([ctr.lat, ctr.lng], gps.center ? 17 : 15);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20, maxNativeZoom: 19, attribution: 'Esri, Maxar' }).addTo(vmap);
+      const dot = (p, color, label, r) => L.circleMarker([p.lat, p.lng], { radius: r || 7, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).bindTooltip(label).addTo(vmap);
+      if (gps.tee && gps.center) {
+        L.polyline([[gps.tee.lat, gps.tee.lng], [gps.center.lat, gps.center.lng]], { color: '#fff', weight: 2, opacity: .85, dashArray: '6 6' }).addTo(vmap);
+        const mid = { lat: (gps.tee.lat + gps.center.lat) / 2, lng: (gps.tee.lng + gps.center.lng) / 2 };
+        L.marker([mid.lat, mid.lng], { icon: L.divIcon({ className: 'vdist', html: C.distance(gps.tee, gps.center) + ' m', iconSize: null }) }).addTo(vmap);
+      }
+      if (gps.tee) dot(gps.tee, '#2f6fd6', 'Départ');
+      if (gps.front) dot(gps.front, '#9be37a', 'Avant', 5);
+      if (gps.back) dot(gps.back, '#1b7a2b', 'Arrière', 5);
+      if (gps.center) dot(gps.center, '#e8272b', 'Centre green', 8);
+      if (gps.tee && gps.center) vmap.fitBounds([[gps.tee.lat, gps.tee.lng], [gps.center.lat, gps.center.lng]], { padding: [40, 40], maxZoom: 18 });
+    }).catch(() => { const m = $app.querySelector('#vmap'); if (m) m.innerHTML = '<p class="err">Carte indisponible hors connexion.</p>'; });
   }
   function viewCourseEdit(idEnc) {
     const id = decodeURIComponent(idEnc);
