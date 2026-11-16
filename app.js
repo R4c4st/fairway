@@ -1609,7 +1609,7 @@
     const P = S.pos;
     let html = '';
     if (!P) html = `<div class="gpsmsg">📡 ${S.gpsErr ? 'GPS indisponible : ' + esc(S.gpsErr) : 'Recherche GPS…'}</div>`;
-    else if (!gps.center) html = `<div class="gpsmsg">Green pas encore placé pour ce trou.</div><div class="row2"><button class="btn ghost sm" data-gp="center">📍 Je suis au centre du green</button><button class="btn ghost sm" data-goto="carte">🗺️ Placer sur la carte</button></div>`;
+    else if (!gps.center) html = `<div class="gpsmsg">Green pas encore placé pour ce trou.</div>${isAdmin() ? '<div class="row2"><button class="btn ghost sm" data-gp="center">📍 Je suis au centre du green</button><button class="btn ghost sm" data-goto="carte">🗺️ Placer sur la carte</button></div>' : ''}`;
     else {
       const dc = C.distance(P, gps.center), df = C.distance(P, gps.front), db = C.distance(P, gps.back);
       if (dc > 1500) { el.innerHTML = `<div class="gpsmsg">Tu es à ${dc >= 10000 ? Math.round(dc / 1000) : (dc / 1000).toFixed(1).replace('.', ',')} km du green : les distances s'afficheront sur le parcours.</div>`; return; }
@@ -1651,17 +1651,17 @@
   function destroyMap() { if (map) { map.remove(); map = null; layers = null; target = null; } }
   function renderMap(body, g) {
     const h = S.hole[g.game.id];
-    const edit = !!S.mapEditMode; if (!edit) S.mapEdit = null;
+    const edit = !!S.mapEditMode && isAdmin(); if (!edit) S.mapEdit = null;
     S.mapCentered = false;
     body.innerHTML = holeChips(g, h) + `<div class="mapwrap${edit ? ' editing' : ''}"><div id="map"></div>
       <div id="mapinfo" class="mapinfo"></div>
-      <div class="mapfabs"><button id="m-me" aria-label="Me centrer sur la carte">◎</button><button id="m-edit" class="${edit ? 'on' : ''}" aria-label="Modifier la carte">✏️</button></div>
+      <div class="mapfabs"><button id="m-me" aria-label="Me centrer sur la carte">◎</button>${isAdmin() ? `<button id="m-edit" class="${edit ? 'on' : ''}" aria-label="Modifier la carte">✏️</button>` : ''}</div>
       ${edit ? `<div class="mapedit"><div class="maptools">${[['tee', 'Départ'], ['front', 'Avant'], ['center', 'Centre'], ['back', 'Arrière']].map(([k, v]) => `<button data-me="${k}" class="${S.mapEdit === k ? 'on' : ''}">${v}</button>`).join('')}</div>
         <p class="hint" id="maphint">${S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Choisis un repère puis touche la carte pour le placer.'}</p>
         <div class="row2"><button class="btn ghost sm" id="m-auto">${FW_IC('signal')} Auto</button>${isAdmin() ? `<a class="btn ghost sm" href="#/admin/${encodeURIComponent(g.game.course_id)}/${h}">${FW_IC('gear')} Précis</a>` : ''}</div>
         <button class="btn sm full" id="m-done">Terminé</button></div>` : ''}</div>`;
     body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { S.hole[g.game.id] = +b.dataset.h; target = null; destroyMap(); renderGameBody(); });
-    body.querySelector('#m-edit').onclick = () => { S.mapEditMode = !S.mapEditMode; S.mapEdit = S.mapEditMode ? 'center' : null; destroyMap(); renderGameBody(); };
+    const me_ = body.querySelector('#m-edit'); if (me_) me_.onclick = () => { S.mapEditMode = !S.mapEditMode; S.mapEdit = S.mapEditMode ? 'center' : null; destroyMap(); renderGameBody(); };
     const done = body.querySelector('#m-done'); if (done) done.onclick = () => { S.mapEditMode = false; S.mapEdit = null; destroyMap(); renderGameBody(); };
     const au = body.querySelector('#m-auto'); if (au) au.onclick = () => autoFlags(g.game.course_id).then(() => { destroyMap(); renderGameBody(); });
     body.querySelectorAll('[data-me]').forEach(b => b.onclick = () => { S.mapEdit = S.mapEdit === b.dataset.me ? null : b.dataset.me; body.querySelectorAll('[data-me]').forEach(x => x.classList.toggle('on', x.dataset.me === S.mapEdit)); const hint = document.getElementById('maphint'); if (hint) hint.innerHTML = S.mapEdit ? 'Touche la carte pour placer : <b>' + ({ tee: 'départ', front: 'avant du green', center: 'centre du green', back: 'arrière du green' })[S.mapEdit] + '</b>' : 'Choisis un repère puis touche la carte pour le placer.'; });
