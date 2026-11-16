@@ -62,8 +62,10 @@
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
     const p = (window.FW_PALETTES || {})[S.me.color] || (window.FW_PALETTES || {}).vert;
     const st = document.documentElement.style;
-    if (p) { st.setProperty('--g', dark ? p.dg : p.g); st.setProperty('--gd', dark ? p.dgd : p.gd); st.setProperty('--gl', dark ? p.dgl : p.gl); st.setProperty('--acc', p.acc); }
-    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', p ? (dark ? p.dgd : p.gd) : '#14532d');
+    // design system v2 : vert forêt mat (les logos gardent leur propre palette)
+    const DS = dark ? { g: '#3C7D5D', gd: '#2E6B4E', gl: '#1E2B25' } : { g: '#2B5240', gd: '#1F3D2E', gl: '#E6EDE8' };
+    st.setProperty('--g', DS.g); st.setProperty('--gd', DS.gd); st.setProperty('--gl', DS.gl); if (p) st.setProperty('--acc', p.acc);
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', dark ? '#0F1512' : '#F4F5F2');
     document.querySelectorAll('img.logo, img.wlogo').forEach(i => (i.src = logoURL()));
   }
   applyTheme();
@@ -503,8 +505,14 @@
   let wxOpen = false, wxBusy = false;
   function loadWeather(force) {
     const el = document.getElementById('wx'); if (!el) return;
-    const show = w => { const e = document.getElementById('wx'); if (e && w) { e.innerHTML = wxHtml(w, wxOpen); e.hidden = false; e.classList.toggle('busy', wxBusy); wxSkin(e, w); } };
-    if (!el.onclick) el.onclick = () => { if (wxBusy) return; if (wxOpen) { wxOpen = false; const w = LS.get('fw_wx', null); if (w) { el.innerHTML = wxHtml(w, false); wxSkin(el, w); } return; } wxOpen = true; loadWeather(true); };
+    const show = w => {
+      const e = document.getElementById('wx'), pill = document.getElementById('wxpill'); if (!w) return;
+      if (pill) { pill.innerHTML = `${wxIcon(w.code, w.day, 'mini')}<b>${Math.round(w.t)}°</b>${w.rain != null ? `<small>${w.rain} %</small>` : ''}`; pill.hidden = false; }
+      if (e) { e.hidden = !wxOpen; if (wxOpen) e.innerHTML = wxHtml(w, true); e.classList.toggle('busy', wxBusy); }
+    };
+    const pill = document.getElementById('wxpill');
+    if (pill && !pill.onclick) pill.onclick = () => { if (wxBusy) return; wxOpen = !wxOpen; const w = LS.get('fw_wx', null); if (w) show(w); if (wxOpen) loadWeather(true); };
+    if (!el.onclick) el.onclick = () => { wxOpen = false; el.hidden = true; };
     const cached = LS.get('fw_wx', null);
     if (cached) show(cached);
     if (!force && cached && Date.now() - cached.at < 30 * 60000) return;
@@ -1075,13 +1083,15 @@
     return `<a class="gcard encard" href="#/game/${g.game.id}"><div><span class="encours">En cours</span><b>${esc(g.game.course.name)}</b><small>${FORMATS[g.game.format]} · ${MODES[g.game.mode]}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''}</small><small>${isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ')}</small></div><div class="gscore">${sc}<small>${s ? s.played + '/' + s.holes : ''}</small></div></a>`;
   };
   // historique : tuile compacte (date, lieu, score), touche pour déplier / replier
+  // score « 117 (+44) » → gros chiffre + pastille d'écart
+  const scoreHtml = sc => { const m = String(sc).match(/^(\d+) \(([^)]+)\)$/); if (m) return `<b>${m[1]}</b><i>${m[2]}</i>`; const p = String(sc).match(/^(\d+) pts$/); if (p) return `<b>${p[1]}</b><i>pts</i>`; return `<b>${sc}</b>`; };
   const histCard = g => {
     const full = card(g);
     const sc = (full.match(/<div class="gscore">([\s\S]*?)<small>/) || [])[1] || '—';
     const hl = (full.match(/<div class="gscore">[\s\S]*?<small>([\s\S]*?)<\/small>/) || [])[1] || '';
     const who = isTeamGame(g) ? teamPlayers(g).map(t => esc(t.name) + ' (' + t.members.map(m => esc(m.name)).join(', ') + ')').join(' vs ') : g.players.map(x => esc(x.name)).join(', ');
     const d = new Date(g.game.play_date + 'T12:00');
-    return `<div class="hcard" data-hx="${g.game.id}"><div class="hrow"><span class="hdate"><b>${d.getDate()}</b><small>${d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}</small></span><span class="hcourse">${esc(g.game.course.name)}</span><span class="hsc">${sc}</span><span class="hchev">›</span></div>
+    return `<div class="hcard" data-hx="${g.game.id}"><div class="hrow"><span class="hdate"><b>${d.getDate()}</b><small>${d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}</small></span><span class="hcourse"><b>${esc(g.game.course.name)}</b><small>${MODES[g.game.mode]} · ${FORMATS[g.game.format]}</small></span><span class="hsc">${scoreHtml(sc)}</span></div>
       <div class="hmore"><small>${frDate(g.game.play_date)}${g.game.tee_time ? ' · ' + esc(g.game.tee_time) : ''} · ${FORMATS[g.game.format]} · ${MODES[g.game.mode]}${hl ? ' · ' + hl + ' joués' : ''}</small><small>${who}</small><a class="btn ghost sm" href="#/game/${g.game.id}">Voir la partie ›</a></div></div>`;
   };
   const bindHist = root => root.querySelectorAll('[data-hx]').forEach(c => c.onclick = e => { if (e.target.closest('a')) return; c.classList.toggle('open'); });
@@ -1099,23 +1109,25 @@
       const holesDone = Math.max(0, ...g.players.map(p => Object.keys(scoresOf(g)[p.id] || {}).length).concat(teamPlayers(g).map(t => 0)));
       return `<a class="gcard pote" href="#/game/${g.game.id}"><div><b>${indivPlayers(g).map(x => led(x.device_id) + esc(x.name)).join(', ')}</b><small>${esc(g.game.course.name)} · ${FORMATS[g.game.format]}${g.game.status === 'done' ? ' · terminée' : ''}</small><small>${lead ? 'En tête : ' + esc(lead.name) + ' (' + esc(lead.label) + ')' : 'Pas encore commencé'}</small></div><div class="gscore">${g.game.status === 'done' ? '🍺' : holesDone + '/' + C.holesFor(g.game.mode, g.game.course.holes.length).length}</div></a>`;
     };
-    $app.innerHTML = topbar('Fairway', null, 'me') + `<main class="home${open.length ? ' playing' : ''}">
-      ${!S.me.name ? '<p class="hint">👋 Commence par renseigner ton nom et ton index dans <a href="#/profile">Profil</a>.</p>' : ''}
-      <div id="wx" class="wx${open.length || potes.length ? ' compact' : ''}" hidden></div>
+    const myFl = S.flights[0];
+    const ini = (S.me.name || '?').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    $app.innerHTML = `<header class="top htop"><span class="wm" aria-label="Fly18">FLY<span class="wm18">18</span></span><button id="wxpill" class="wxpill" hidden></button><a class="avatar" href="#/profile" aria-label="Réglages">${esc(ini)}<i id="sync" class="sync dot" data-dot="1"></i></a></header>
+    <main class="home${open.length ? ' playing' : ''}">
+      <div class="hello"><h1>Bonjour ${esc(S.me.name.split(' ')[0])}</h1><p>Index ${S.me.index !== '' && S.me.index != null ? esc(String(S.me.index)) : '—'}${myFl ? ' · ' + esc(myFl.name) : ''}</p></div>
+      <div id="wx" class="wx" hidden></div>
       <div id="online"></div>
       ${installBar()}
       ${open.map(card).join('')}
-      <div class="tiles"><a class="tile new" href="#/new"><i>＋</i><b>Nouvelle partie</b></a>${S.me.season ? `<a class="tile trt" href="#/classement"><i>${FW_IC('trophy')}</i><b>Fly Tour</b><span id="srank"></span></a>` : `<button class="tile join" data-act="invite"><i>${FW_IC('invite')}</i><b>Inviter</b></button>`}<a class="tile live" href="#/live"><i>${FW_IC('live')}</i><b>Live</b><span id="livecount"></span></a></div>
-      ${potes.length ? '<h2>👥 Mes potes jouent</h2>' + potes.map(potesCard).join('') : ''}
-      ${done.length ? '<div class="hlist">' + done.slice(0, 3).map(histCard).join('') + '</div>' : '<p class="muted">Aucune partie terminée.</p>'}
-      ${!S.flights.length && S.me.name ? `<a class="sinvite" href="#/flights"><span><i class="crest">${FW_IC('crest')}</i></span><div><b>Rejoins ou crée ton Flight</b><small>Ta bande de golf : vos parties, le Live et le Fly Tour entre vous.</small></div><span class="hchev">›</span></a>` : ''}
-      ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked && S.me.name ? `<div class="sinvite" id="sinvite"><span>🏆</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois entre potes.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
-      <div class="row3"><a class="btn ghost" href="#/stats"><i>${FW_IC('stats')}</i>Stats</a><a class="btn ghost" href="#/courses"><i>${FW_IC('parcours')}</i>Parcours</a><a class="btn ghost" href="#/profile"><i>${FW_IC('settings')}</i>Réglages</a></div>
-      <div class="invrow">${S.me.season ? `<button class="invbar" data-act="invite"><i>${S.flights.length ? flCrest(S.flights[0]) : FW_IC('crest')}</i><div><b>Inviter</b><small>dans mon Flight</small></div></button>` : ''}<button class="invbar" data-act="app"><i>${FW_IC('invite')}</i><div><b>Partager</b><small>l'appli Fly18</small></div></button></div>
+      <div class="acts"><a class="act pri" href="#/new">${FW_LI('plus', 2)}<b>Nouvelle partie</b></a><a class="act" href="#/live">${FW_LI('live')}<b>Live</b><span id="livecount" class="ldot"></span></a>${S.me.season ? `<a class="act tour" href="#/classement">${FW_LI('trophy')}<b>Fly Tour</b><span id="srank" class="rk"></span></a>` : `<button class="act" data-act="invite">${FW_LI('users')}<b>Inviter</b></button>`}</div>
+      ${potes.length ? '<div class="sec"><h2>Mes potes jouent</h2></div>' + potes.map(potesCard).join('') : ''}
+      ${done.length ? `<div class="sec"><h2>Dernières parties</h2><a href="#/stats">Tout voir</a></div><div class="hlist">${done.slice(0, 3).map(histCard).join('')}</div>` : ''}
+      ${!S.flights.length ? `<a class="sinvite" href="#/flights"><span class="sic">${FW_LI('shield')}</span><div><b>Rejoins ou crée ton Flight</b><small>Ta bande de golf : vos parties, le Live et le Fly Tour entre vous.</small></div>${FW_LI('chev')}</a>` : ''}
+      ${S.me.season ? `<div id="sstrip">${seasonStrip(LS.get('fw_season', null))}</div>` : (!S.me.seasonAsked ? `<div class="sinvite" id="sinvite"><span class="sic gold">${FW_LI('trophy')}</span><div><b>Nouveau : le Fly Tour</b><small>Des points à chaque partie, une Fly Cup en jeu chaque mois.</small></div><button class="btn sm" id="si-on">Activer</button><button class="sx" id="si-no" aria-label="Plus tard">✕</button></div>` : '')}
+      <div class="mods"><a class="mod" href="#/stats">${FW_LI('stats')}<span>Stats</span></a><a class="mod" href="#/courses">${FW_LI('flag')}<span>Parcours</span></a><button class="mod" data-act="share">${FW_LI('share')}<span>Partager</span></button></div>
       <div class="copy">© ${new Date().getFullYear()} Fly18 · by R4c4st</div>
     </main>`;
     updateSyncBadge();
-    if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) el.textContent = list.length; });
+    if (remoteOn()) fetchLive().then(all => { const list = all.filter(g => g.game.status !== 'done'); const el = document.getElementById('livecount'); if (el && list.length) { el.textContent = list.length; el.classList.add('on'); } });
     refreshOnlineUI();
     loadWeather();
     const sApply = d => { if (!d || !d.cur) return; const e = document.getElementById('sstrip'); if (e) e.innerHTML = seasonStrip(d); const rk = document.getElementById('srank'), i = d.cur.findIndex(r => r.dev === S.me.deviceId); if (rk && i >= 0) rk.textContent = (i + 1) + (i ? 'e' : 'er'); checkMonthCrown(d); };
@@ -1126,7 +1138,11 @@
     const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
     bindHist($app);
     $app.querySelectorAll('[data-act=invite]').forEach(b => b.onclick = () => S.flights.length ? flightInviteSheet(S.flights[0]) : (location.hash = '#/flights'));
-    $app.querySelectorAll('[data-act=app]').forEach(b => b.onclick = inviteSheet);
+    $app.querySelectorAll('[data-act=share]').forEach(b => b.onclick = async () => {
+      const opts = S.flights.length ? [['fl', 'Inviter dans mon Flight'], ['app', 'Partager l\'appli', 'ghost'], [null, 'Annuler', 'ghost']] : [['app', 'Partager l\'appli'], ['fl', 'Créer ou rejoindre un Flight', 'ghost'], [null, 'Annuler', 'ghost']];
+      const v = await fwChoice('Partager', opts);
+      if (v === 'app') inviteSheet(); else if (v === 'fl') { if (S.flights.length) flightInviteSheet(S.flights[0]); else location.hash = '#/flights'; }
+    });
     const ib = $app.querySelector('#installbar'); if (ib) ib.onclick = promptInstall;
   }
 
@@ -2414,11 +2430,11 @@
     const tees = ['blanc', 'jaune', 'bleu', 'rouge'];
     $app.innerHTML = topbar('Profil', '#/') + `<main class="form">
       <div class="row2"><label>Nom<input id="p-name" value="${esc(S.me.name)}"></label><label>Index (facultatif)<input id="p-idx" inputmode="decimal" value="${esc(S.me.index)}"></label></div>
-      <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>👓 Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via Aa en haut d'une partie)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>📍 Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>🟢 Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>🏆 Fly Tour<small>Le classement entre potes : une étape par mois, une Fly Cup au vainqueur (tes 4 meilleurs 9 trous)</small></span></label>
-      <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>👥 Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-big" ${S.me.big ? 'checked' : ''}><span>Mode Frounzy<small>Gros caractères, gros boutons, écran simplifié (aussi via Aa en haut d'une partie)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-detect" ${S.me.detect ? 'checked' : ''}><span>Détecter mon arrivée au golf<small>Message de bienvenue à l'ouverture de l'appli, à moins de 2 km d'un parcours (1 fois par jour)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-visible" ${S.me.visible ? 'checked' : ''}><span>Apparaître en ligne<small>Les potes voient un point vert à côté de ton prénom (et ton parcours quand tu joues)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-season" ${S.me.season ? 'checked' : ''}><span>Fly Tour<small>Le classement entre potes : une étape par mois, une Fly Cup au vainqueur (tes 4 meilleurs 9 trous)</small></span></label>
+      <label class="switch"><input type="checkbox" id="p-follow" ${S.me.follow ? 'checked' : ''}><span>Suivre mes potes<small>Pop-ups et tournée des parties de mes partenaires, même sans être invité</small></span></label>
       <label>Logo</label>
       <div class="logos">${Object.keys(window.FW_LOGOS || {}).map(k => `<button data-lg="${k}" class="${S.me.logo === k ? 'on' : ''}"><img src="${window.fwLogoURL(k, S.me.color)}" alt=""><small>${esc(window.FW_LOGO_NAMES[k])}</small></button>`).join('')}</div>
       <label>Apparence</label>
