@@ -1183,7 +1183,7 @@
       <div id="online"></div>
       ${installBar()}
       ${open.map(card).join('')}
-      <div class="acts"><a class="act pri" href="#/new">${FW_LI('plus', 2)}<b>Jouer</b></a><a class="act" href="#/live">${FW_LI('live')}<b>Live</b><span id="livecount" class="ldot"></span></a>${S.me.season ? `<a class="act tour" href="#/classement">${FW_LI('trophy')}<b>Fly Tour</b><span id="srank" class="rk"></span></a>` : `<button class="act" data-act="invite">${FW_LI('users')}<b>Inviter</b></button>`}</div>
+      <div class="acts"><a class="act pri" href="#/new">${FW_LI('tee', 1.9)}<b>Jouer</b></a><a class="act" href="#/live">${FW_LI('live')}<b>Live</b><span id="livecount" class="ldot"></span></a>${S.me.season ? `<a class="act tour" href="#/classement">${FW_LI('trophy')}<b>Fly Tour</b><span id="srank" class="rk"></span></a>` : `<button class="act" data-act="invite">${FW_LI('users')}<b>Inviter</b></button>`}</div>
       ${potes.length ? '<div class="sec"><h2>Mon Flight joue</h2></div>' + potes.map(potesCard).join('') : ''}
       ${done.length ? `<div class="sec"><h2>Dernières parties</h2><a href="#/stats">Tout voir</a></div><div class="hlist">${done.slice(0, 3).map(histCard).join('')}</div>` : ''}
       ${!S.flights.length ? `<a class="sinvite" href="#/flights"><span class="sic">${FW_LI('shield')}</span><div><b>Rejoins ou crée ton Flight</b><small>Ton cercle de golf : vos parties, le Live et le Fly Tour, entre vous.</small></div>${FW_LI('chev')}</a>` : ''}
