@@ -340,8 +340,10 @@
   const isKnown = dev => !!dev && (dev === S.me.deviceId || knownDevs().has(dev));
   // Fly Tour activé côté serveur (par l'admin) : on l'adopte une fois, avec un message de présentation
   async function pullSeasonFlag() {
-    if (S.me.seasonAsked || !remoteOn() || !navigator.onLine) return;
-    try { const { data } = await sb.from('profiles').select('season').eq('device_id', S.me.deviceId).limit(1); if (data && data[0] && data[0].season) { S.me.season = true; S.me.seasonAsked = 1; S.me.seasonAuto = 1; saveMe(); } } catch (e) { }
+    if (S.me.seasonDirty || !remoteOn() || !navigator.onLine) return;
+    try { const { data } = await sb.from('profiles').select('season').eq('device_id', S.me.deviceId).limit(1);
+      if (data && data[0] && S.me.seasonAsked) { if (!!data[0].season !== !!S.me.season) { S.me.season = !!data[0].season; saveMe(); if (location.hash === '' || location.hash === '#/') viewHome(); } return; } // le serveur fait foi
+      if (data && data[0] && data[0].season) { S.me.season = true; S.me.seasonAsked = 1; S.me.seasonAuto = 1; saveMe(); } } catch (e) { }
   }
   async function pullFlights() {
     if (!remoteOn() || !navigator.onLine) return S.flights;
@@ -630,7 +632,8 @@
   /* ---------- Profil serveur & partenaires ---------- */
   function syncProfile() {
     saveMe();
-    push({ t: 'upsert', table: 'profiles', row: { device_id: S.me.deviceId, code: S.me.code, name: S.me.name, idx: S.me.index === '' || S.me.index == null ? null : Number(S.me.index), tee: S.me.tee, bag: S.me.bag, partners: S.me.partners, season: !!S.me.season, updated_at: new Date().toISOString() } });
+    push({ t: 'upsert', table: 'profiles', row: { device_id: S.me.deviceId, code: S.me.code, name: S.me.name, idx: S.me.index === '' || S.me.index == null ? null : Number(S.me.index), tee: S.me.tee, bag: S.me.bag, partners: S.me.partners, ...(S.me.seasonDirty ? { season: !!S.me.season } : {}), updated_at: new Date().toISOString() } });
+    S.me.seasonDirty = 0; saveMe(); // le Fly Tour ne s'envoie que sur un vrai choix du golfeur
   }
   async function restoreProfile(code) {
     if (!remoteOn()) throw new Error('Serveur non configuré.');
@@ -1243,7 +1246,7 @@
     const sCache = LS.get('fw_season', null);
     if (S.me.season && sCache) sApply(sCache);
     if (S.me.season && (!sCache || Date.now() - (sCache.at || 0) > 90e3 || sCache.nDone !== done.length || (sCache.flightId || null) !== ((tourFlight() || {}).id || null))) refreshSeason().then(sApply).catch(() => { });
-    const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; syncProfile(); toast('Bienvenue sur le Fly Tour 🏆'); viewHome(); };
+    const sOn = $app.querySelector('#si-on'); if (sOn) sOn.onclick = () => { S.me.season = true; S.me.seasonAsked = 1; S.me.seasonDirty = 1; syncProfile(); toast('Bienvenue sur le Fly Tour 🏆'); viewHome(); };
     const tGo = $app.querySelector('#ti-go'); if (tGo) tGo.onclick = () => { S.me.tourIntro = 1; saveMe(); location.hash = '#/classement'; };
     const tNo = $app.querySelector('#ti-no'); if (tNo) tNo.onclick = () => { S.me.tourIntro = 1; saveMe(); viewHome(); };
     const sNo = $app.querySelector('#si-no'); if (sNo) sNo.onclick = () => { S.me.seasonAsked = 1; saveMe(); viewHome(); };
@@ -2620,7 +2623,7 @@
     $app.querySelector('#p-big').onchange = e => { S.me.big = e.target.checked; saveMe(); applyBig(); };
     $app.querySelector('#p-detect').onchange = e => { S.me.detect = e.target.checked; saveMe(); startDetect(); toast(S.me.detect ? '📍 Détection activée' : 'Détection coupée'); };
     $app.querySelector('#p-visible').onchange = e => { S.me.visible = e.target.checked; saveMe(); trackPresence(); toast(S.me.visible ? 'Tu apparais en ligne 🟢' : 'Mode invisible 👻'); };
-    $app.querySelector('#p-season').onchange = e => { S.me.season = e.target.checked; S.me.seasonAsked = 1; syncProfile(); LS.set('fw_season', null); toast(S.me.season ? 'Bienvenue sur le Fly Tour 🏆' : 'Fly Tour désactivé'); };
+    $app.querySelector('#p-season').onchange = e => { S.me.season = e.target.checked; S.me.seasonAsked = 1; S.me.seasonDirty = 1; syncProfile(); LS.set('fw_season', null); toast(S.me.season ? 'Bienvenue sur le Fly Tour 🏆' : 'Fly Tour désactivé'); };
     $app.querySelector('#p-follow').onchange = e => { S.me.follow = e.target.checked; syncProfile(); pullFollowGames(); toast(S.me.follow ? 'Tu suis ton Flight' : 'Suivi du Flight coupé'); };
     $app.querySelector('#p-bknow').onclick = async () => { await doBackup(); toast(S.lastBackup ? 'Sauvegardé ☁️' : 'Sauvegarde impossible (connexion ?)'); };
     $app.querySelector('#p-bkrest').onclick = async () => { if (!sb) return fwAlert('Serveur non configuré.'); const ok = await restoreBackup(S.me.deviceId).catch(() => false); toast(ok ? 'Données restaurées 👍' : 'Aucune sauvegarde trouvée'); viewProfile(); };
